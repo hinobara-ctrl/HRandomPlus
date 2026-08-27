@@ -8,9 +8,9 @@ internal static partial class PlatformSourceFactory
 {
     public static partial IBeatmapSource Create(AppSettings settings)
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) };
+        var http = new HttpClient();
         return new TosuBeatmapSource(
-            new TosuClient(http, settings.TosuHost, settings.TosuPort),
+            new TosuClient(http, settings.TosuHost, settings.TosuPort, disposeHttpClient: true),
             new BeatmapPathResolver(),
             () => settings.LinuxOsuPath);
     }

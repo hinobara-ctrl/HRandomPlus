@@ -43,6 +43,39 @@ public class ApplicationTests
     }
 
     [Fact]
+    public void NewSettingsWriteBesideBeatmapByDefault()
+    {
+        Assert.True(new AppSettings().OutputToBeatmapFolder);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OutputLocationPreferenceRoundTrips(bool expected)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusOutputSetting", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SettingsStore(root);
+            store.Save(new AppSettings { OutputToBeatmapFolder = expected });
+            Assert.Equal(expected, store.Load().OutputToBeatmapFolder);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void ReadOnlySettingsLoadDoesNotCreateFiles()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusReadOnlySettings", Guid.NewGuid().ToString("N"));
+        AppSettings settings = new SettingsStore(root).LoadReadOnly();
+        Assert.True(settings.OutputToBeatmapFolder);
+        Assert.True(!Directory.Exists(root));
+    }
+
+    [Fact]
     public void BuiltInProfilesAreIndependentData()
     {
         RandomProfile h = ProfileCatalog.BuiltIns.Single(p => p.Name == "H-Random");
@@ -50,6 +83,90 @@ public class ApplicationTests
         Assert.True(h.Config.Weights.JackPenalty > 0);
         Assert.Equal(0d, s.Config.Weights.JackPenalty);
         Assert.Equal(4096, s.Config.WeightedTopCandidates);
+    }
+
+    [Fact]
+    public void CustomProfileRoundTripPreservesSeed()
+    {
+        AppSettings loaded = RoundTripSettings(new RandomProfile
+        {
+            Name = "Seeded",
+            Config = new HRandomConfig { Seed = 987654321, DifficultySuffix = " SEEDED" }
+        });
+
+        Assert.Equal(987654321L, Assert.Single(loaded.CustomProfiles).Config.Seed);
+    }
+
+    [Fact]
+    public void CustomProfileRoundTripPreservesEmptySeedAsRandom()
+    {
+        AppSettings loaded = RoundTripSettings(new RandomProfile
+        {
+            Name = "Random seed",
+            Config = new HRandomConfig { Seed = null, DifficultySuffix = " RANDOM" }
+        });
+
+        Assert.Equal<long?>(null, Assert.Single(loaded.CustomProfiles).Config.Seed);
+    }
+
+    [Fact]
+    public void CustomProfileRoundTripPreservesEveryConfigField()
+    {
+        var expected = new HRandomConfig
+        {
+            Seed = -123456789,
+            DynamicThreshold = false,
+            MinThresholdMs = 11,
+            BaseThresholdMs = 22,
+            MaxThresholdMs = 33,
+            RecentUsageWindow = 44,
+            PatternHistoryLength = 55,
+            WeightedTopCandidates = 7,
+            WeightedTemperature = 6.5,
+            MaxCandidateSets = 777,
+            RenameDifficulty = false,
+            DifficultySuffix = " ROUNDTRIP",
+            Weights = new ScoringWeights
+            {
+                TimeSinceLastUseBonus = 1,
+                HandBalanceBonus = 2,
+                DistributionBonus = 3,
+                JackPenalty = 4,
+                TrillPenalty = 5,
+                RepeatedPatternPenalty = 6,
+                SameHandPenalty = 7,
+                ExtremeJumpPenalty = 8,
+                RecentUsagePenalty = 9
+            }
+        };
+
+        HRandomConfig actual = Assert.Single(RoundTripSettings(new RandomProfile
+        {
+            Name = "All fields",
+            Config = expected
+        }).CustomProfiles).Config;
+
+        Assert.Equal(expected.Seed, actual.Seed);
+        Assert.Equal(expected.DynamicThreshold, actual.DynamicThreshold);
+        Assert.Equal(expected.MinThresholdMs, actual.MinThresholdMs);
+        Assert.Equal(expected.BaseThresholdMs, actual.BaseThresholdMs);
+        Assert.Equal(expected.MaxThresholdMs, actual.MaxThresholdMs);
+        Assert.Equal(expected.RecentUsageWindow, actual.RecentUsageWindow);
+        Assert.Equal(expected.PatternHistoryLength, actual.PatternHistoryLength);
+        Assert.Equal(expected.WeightedTopCandidates, actual.WeightedTopCandidates);
+        Assert.Equal(expected.WeightedTemperature, actual.WeightedTemperature);
+        Assert.Equal(expected.MaxCandidateSets, actual.MaxCandidateSets);
+        Assert.Equal(expected.RenameDifficulty, actual.RenameDifficulty);
+        Assert.Equal(expected.DifficultySuffix, actual.DifficultySuffix);
+        Assert.Equal(expected.Weights.TimeSinceLastUseBonus, actual.Weights.TimeSinceLastUseBonus);
+        Assert.Equal(expected.Weights.HandBalanceBonus, actual.Weights.HandBalanceBonus);
+        Assert.Equal(expected.Weights.DistributionBonus, actual.Weights.DistributionBonus);
+        Assert.Equal(expected.Weights.JackPenalty, actual.Weights.JackPenalty);
+        Assert.Equal(expected.Weights.TrillPenalty, actual.Weights.TrillPenalty);
+        Assert.Equal(expected.Weights.RepeatedPatternPenalty, actual.Weights.RepeatedPatternPenalty);
+        Assert.Equal(expected.Weights.SameHandPenalty, actual.Weights.SameHandPenalty);
+        Assert.Equal(expected.Weights.ExtremeJumpPenalty, actual.Weights.ExtremeJumpPenalty);
+        Assert.Equal(expected.Weights.RecentUsagePenalty, actual.Weights.RecentUsagePenalty);
     }
 
     [Fact]
@@ -120,5 +237,20 @@ public class ApplicationTests
             Assert.All(output.HitObjects.Where(h => h.StartTime is 1100 or 1300), h => Assert.True(h.OriginalColumn != 0));
         }
         finally { Directory.Delete(root, true); }
+    }
+
+    private static AppSettings RoundTripSettings(RandomProfile profile)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusProfile", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SettingsStore(root);
+            store.Save(new AppSettings { CustomProfiles = new List<RandomProfile> { profile } });
+            return store.Load();
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
     }
 }

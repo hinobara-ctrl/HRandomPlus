@@ -9,6 +9,7 @@ using HRandomPlus.Beatmaps;
 using HRandomPlus.Core;
 using HRandomPlus.Desktop.Platform;
 using HRandomPlus.Integration.Beatmaps;
+using HRandomPlus.Integration.Importing;
 
 namespace HRandomPlus.Desktop;
 
@@ -18,6 +19,7 @@ public sealed class MainWindow : Window
     private readonly AppSettings settings;
     private IBeatmapSource source;
     private readonly BeatmapGenerationService generator = new();
+    private readonly IBeatmapImporter importer = new DirectFileImporter();
     private readonly CancellationTokenSource pollingCancellation = new();
     private readonly List<RandomProfile> profiles = new();
     private readonly Dictionary<string, TextBox> editors = new();
@@ -42,6 +44,7 @@ public sealed class MainWindow : Window
     private string? currentPath;
     private string? lastDetectedIdentity;
     private string? lastDetectionStatus;
+    private bool? lastSourceAvailable;
     private bool randomizing;
 
     public MainWindow()
@@ -67,6 +70,7 @@ public sealed class MainWindow : Window
         Closed += (_, _) =>
         {
             pollingCancellation.Cancel();
+            DisposeSource(source);
             SaveSettings();
         };
         store.Log($"Avalonia application started on {Environment.OSVersion.Platform}");
@@ -115,8 +119,12 @@ public sealed class MainWindow : Window
         left.Children.Add(Button("Generate random seed", () => seedBox.Text = SeededRandom.CreateSeed().ToString(CultureInfo.InvariantCulture)));
 
         left.Children.Add(Section("PLATFORM AND OUTPUT"));
-        left.Children.Add(Labeled("tosu host", tosuHost));
-        left.Children.Add(Labeled("tosu port", tosuPort));
+        Control tosuHostSetting = Labeled("tosu host", tosuHost);
+        Control tosuPortSetting = Labeled("tosu port", tosuPort);
+        tosuHostSetting.IsVisible = !OperatingSystem.IsWindows();
+        tosuPortSetting.IsVisible = !OperatingSystem.IsWindows();
+        left.Children.Add(tosuHostSetting);
+        left.Children.Add(tosuPortSetting);
         left.Children.Add(outputToBeatmapFolder);
         left.Children.Add(Button("Apply settings", ApplyPlatformSettings));
         randomizeButton.Click += async (_, _) => await RandomizeAsync();
@@ -194,7 +202,7 @@ public sealed class MainWindow : Window
             if (OperatingSystem.IsWindows()) settings.OsuPath = path;
             else settings.LinuxOsuPath = path;
             SaveSettings();
-            source = PlatformSourceFactory.Create(settings);
+            ReplaceSource(PlatformSourceFactory.Create(settings));
             SetStatus("osu! path saved");
         }
         catch (Exception ex) { ShowError(ex); }
@@ -253,22 +261,44 @@ public sealed class MainWindow : Window
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (randomizing) continue;
-                BeatmapSourceResult result = await source.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                try
                 {
-                    if (result.Selection is not null && result.Selection.Beatmap.Identity != lastDetectedIdentity)
+                    IBeatmapSource activeSource = source;
+                    BeatmapSourceResult result = await activeSource.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+                    if (cancellationToken.IsCancellationRequested) break;
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        lastDetectedIdentity = result.Selection.Beatmap.Identity;
-                        try { SetBeatmap(result.Selection.NativePath, result.Status); }
-                        catch (Exception ex) { SetStatus(ex.Message); }
-                    }
-                    else if (currentPath is null) SetStatus(result.Status);
-                    if (lastDetectionStatus != result.Status)
+                        if (result.Selection is not null && result.Selection.Beatmap.Identity != lastDetectedIdentity)
+                        {
+                            lastDetectedIdentity = result.Selection.Beatmap.Identity;
+                            try { SetBeatmap(result.Selection.NativePath, result.Status); }
+                            catch (Exception ex) { SetStatus(ex.Message); }
+                        }
+                        else if (currentPath is null) SetStatus(result.Status);
+                        if (lastSourceAvailable != result.IsAvailable)
+                        {
+                            lastSourceAvailable = result.IsAvailable;
+                            store.Log(result.IsAvailable ? "Detection source connected" : "Detection source disconnected");
+                        }
+                        if (lastDetectionStatus != result.Status)
+                        {
+                            lastDetectionStatus = result.Status;
+                            store.Log($"Detection status: {result.Status}");
+                        }
+                    });
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
+                catch (Exception ex)
+                {
+                    string message = $"Unexpected polling error: {ex.Message}";
+                    if (lastDetectionStatus != message)
                     {
-                        lastDetectionStatus = result.Status;
-                        store.Log($"Detection status: {result.Status}");
+                        lastDetectionStatus = message;
+                        store.Log(message);
+                        if (!cancellationToken.IsCancellationRequested)
+                            await Dispatcher.UIThread.InvokeAsync(() => SetStatus(message));
                     }
-                });
+                }
             }
         }
         catch (OperationCanceledException) { }
@@ -285,14 +315,23 @@ public sealed class MainWindow : Window
                 ? null
                 : long.Parse(seedBox.Text, CultureInfo.InvariantCulture);
             BeatmapRange? range = selectedRange.IsChecked == true ? BeatmapRange.Parse(rangeBox.Text ?? "") : null;
+            string profile = profileBox.SelectedItem?.ToString() ?? "Custom";
+            string rangeDescription = range is null ? "Whole map" : $"Selected range {range.Value.StartMs}-{range.Value.EndMs} ms";
             randomizing = true;
             randomizeButton.IsEnabled = false;
             SetStatus("Randomizing...");
             string? outputDirectory = outputToBeatmapFolder.IsChecked == true ? null : AppPaths.OutputDirectory;
+            store.Log($"Randomize started; platform={Environment.OSVersion.Platform}; beatmap={snapshot}; profile={profile}; range={rangeDescription}; seed={(config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "random")}; importStrategy=direct-file");
             GenerationResult result = await Task.Run(() => generator.Generate(snapshot, config, range, outputDirectory));
+            BeatmapImportResult import = await importer.ImportAsync(
+                new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory),
+                pollingCancellation.Token);
             seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
-            SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {result.OutputPath}");
-            store.Log($"Generated {result.OutputPath}; seed={result.Seed}");
+            string linuxFallback = OperatingSystem.IsLinux()
+                ? "\nAutomatic Wine import: NOT TESTED. If osu! does not refresh, use F5 or import manually."
+                : string.Empty;
+            SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {result.OutputPath}{linuxFallback}");
+            store.Log($"Randomize completed; output={result.OutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; importResult={(import.Success ? "output-preserved" : import.Message)}");
         }
         catch (Exception ex) { ShowError(ex); }
         finally
@@ -364,11 +403,14 @@ public sealed class MainWindow : Window
     {
         try
         {
-            settings.TosuHost = string.IsNullOrWhiteSpace(tosuHost.Text) ? "127.0.0.1" : tosuHost.Text.Trim();
-            settings.TosuPort = int.Parse(tosuPort.Text ?? "24050", CultureInfo.InvariantCulture);
-            if (settings.TosuPort is < 1 or > 65535) throw new ArgumentOutOfRangeException(nameof(settings.TosuPort));
+            if (!OperatingSystem.IsWindows())
+            {
+                settings.TosuHost = string.IsNullOrWhiteSpace(tosuHost.Text) ? "127.0.0.1" : tosuHost.Text.Trim();
+                settings.TosuPort = int.Parse(tosuPort.Text ?? "24050", CultureInfo.InvariantCulture);
+                if (settings.TosuPort is < 1 or > 65535) throw new ArgumentOutOfRangeException(nameof(settings.TosuPort));
+            }
             settings.OutputToBeatmapFolder = outputToBeatmapFolder.IsChecked == true;
-            source = PlatformSourceFactory.Create(settings);
+            ReplaceSource(PlatformSourceFactory.Create(settings));
             SaveSettings();
             SetStatus("Settings applied");
         }
@@ -384,6 +426,7 @@ public sealed class MainWindow : Window
 
     private void LoadConfig(HRandomConfig config)
     {
+        seedBox.Text = config.Seed?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         dynamicThreshold.IsChecked = config.DynamicThreshold;
         renameDifficulty.IsChecked = config.RenameDifficulty;
         Set("MinThresholdMs", config.MinThresholdMs); Set("BaseThresholdMs", config.BaseThresholdMs);
@@ -402,6 +445,9 @@ public sealed class MainWindow : Window
     {
         var config = new HRandomConfig
         {
+            Seed = string.IsNullOrWhiteSpace(seedBox.Text)
+                ? null
+                : long.Parse(seedBox.Text, CultureInfo.InvariantCulture),
             DynamicThreshold = dynamicThreshold.IsChecked == true,
             RenameDifficulty = renameDifficulty.IsChecked == true,
             MinThresholdMs = Int("MinThresholdMs"), BaseThresholdMs = Int("BaseThresholdMs"), MaxThresholdMs = Int("MaxThresholdMs"),
@@ -436,6 +482,18 @@ public sealed class MainWindow : Window
     private void SaveSettings() { try { store.Save(settings); } catch (Exception ex) { store.Log($"Could not save settings: {ex.Message}"); } }
     private void SetStatus(string message) => status.Text = message;
     private void ShowError(Exception ex) { SetStatus("Error: " + ex.Message); store.Log($"ERROR {ex}"); }
+    private void ReplaceSource(IBeatmapSource replacement)
+    {
+        IBeatmapSource previous = source;
+        source = replacement;
+        lastDetectionStatus = null;
+        lastSourceAvailable = null;
+        DisposeSource(previous);
+    }
+    private static void DisposeSource(IBeatmapSource value)
+    {
+        if (value is IDisposable disposable) disposable.Dispose();
+    }
 
     private static TextBlock Text(string value, double size = 14, FontWeight? weight = null)
         => new() { Text = value, FontSize = size, FontWeight = weight ?? FontWeight.Normal, TextWrapping = TextWrapping.Wrap };

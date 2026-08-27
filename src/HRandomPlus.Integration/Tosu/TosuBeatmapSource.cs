@@ -2,7 +2,7 @@ using HRandomPlus.Integration.Beatmaps;
 
 namespace HRandomPlus.Integration.Tosu;
 
-public sealed class TosuBeatmapSource : IBeatmapSource
+public sealed class TosuBeatmapSource : IBeatmapSource, IDisposable
 {
     private readonly TosuClient client;
     private readonly BeatmapPathResolver resolver;
@@ -28,4 +28,6 @@ public sealed class TosuBeatmapSource : IBeatmapSource
             return BeatmapSourceResult.Waiting(path.Status);
         return BeatmapSourceResult.Found(new BeatmapSelection(result.Snapshot.Beatmap, path.Path!), path.Status);
     }
+
+    public void Dispose() => client.Dispose();
 }

@@ -1,6 +1,7 @@
 bin/
 obj/
 publish/
+outputs/
 local-nuget/
 .dotnet-cli-home/
 .nuget-http-cache/

@@ -37,7 +37,12 @@ public sealed class WinelloLocator
                 return false;
             }
 
-            string configured = File.ReadAllText(ConfigurationPath).Trim().Trim('"');
+            string configured = File.ReadAllText(ConfigurationPath).Trim().Trim('"').Trim();
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                status = $"La configuración de osu-winello está vacía: {ConfigurationPath}";
+                return false;
+            }
             if (configured.StartsWith("~/", StringComparison.Ordinal))
                 configured = Path.Combine(userProfile, configured[2..]);
             string candidate = Path.GetFullPath(configured);

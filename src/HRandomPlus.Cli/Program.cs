@@ -1,7 +1,9 @@
 using HRandomPlus.Archives;
 using HRandomPlus.Core;
 using HRandomPlus.Integration.Beatmaps;
+using HRandomPlus.Integration.Linux;
 using HRandomPlus.Integration.Tosu;
+using HRandomPlus.Beatmaps;
 
 namespace HRandomPlus.Cli;
 
@@ -29,7 +31,7 @@ public static class Program
 
     private static async Task<int> DiagnoseAsync(string[] args)
     {
-        AppSettings settings = new SettingsStore().Load();
+        AppSettings settings = new SettingsStore().LoadReadOnly();
         string host = settings.TosuHost;
         int port = settings.TosuPort;
         string? osuRoot = OperatingSystem.IsWindows() ? settings.OsuPath : settings.LinuxOsuPath;
@@ -45,20 +47,53 @@ public static class Program
             }
         }
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) };
-        var source = new TosuBeatmapSource(new TosuClient(http, host, port), new BeatmapPathResolver(), () => osuRoot);
-        BeatmapSourceResult result = await source.GetCurrentAsync().ConfigureAwait(false);
-        Console.WriteLine($"tosu: http://{host}:{port}/json/v2");
-        Console.WriteLine($"estado: {result.Status}");
-        if (result.Selection is null) return result.IsAvailable ? 4 : 3;
+        string tosuUrl = $"http://{host}:{port}/json/v2";
+        Console.WriteLine($"Platform: {PlatformName()}");
+        Console.WriteLine($"Client: osu!stable");
+        Console.WriteLine($"Desktop source: {(OperatingSystem.IsWindows() ? "Windows memory" : "tosu + osu-winello")}");
+        Console.WriteLine($"Diagnostic source: tosu HTTP");
+        Console.WriteLine($"Tosu URL: {tosuUrl}");
 
-        var map = result.Selection.Beatmap;
-        Console.WriteLine($"beatmap: {map.Artist} - {map.Title} [{map.Difficulty}]");
-        Console.WriteLine($"mapper: {map.Creator}");
-        Console.WriteLine($"id/set: {map.Id}/{map.SetId}");
-        Console.WriteLine($"checksum: {map.Checksum ?? "(sin checksum)"}");
-        Console.WriteLine($"archivo: {result.Selection.NativePath}");
-        return 0;
+        string? locatedRoot = osuRoot;
+        string winelloStatus = OperatingSystem.IsWindows() ? "Not available on Windows" : "Not detected";
+        if (!OperatingSystem.IsWindows())
+        {
+            var locator = new WinelloLocator();
+            if (string.IsNullOrWhiteSpace(locatedRoot)) locator.TryLocate(out locatedRoot, out winelloStatus);
+            else winelloStatus = "Manual native osu! path configured";
+        }
+        Console.WriteLine($"Winello status: {winelloStatus}");
+        Console.WriteLine($"osu root: {Display(locatedRoot, "Not detected")}");
+        string? songsPath = ResolveSongsPath(locatedRoot);
+        Console.WriteLine($"Songs path: {Display(songsPath, "Not resolved")}");
+
+        using var http = new HttpClient();
+        using var client = new TosuClient(http, host, port);
+        TosuResult tosu = await client.GetCurrentAsync().ConfigureAwait(false);
+        Console.WriteLine($"Tosu status: {tosu.Status}");
+        if (tosu.Snapshot is null)
+        {
+            Console.WriteLine("Current beatmap: Not detected");
+            Console.WriteLine("Resolved .osu path: Not resolved");
+            Console.WriteLine("Exists: No");
+            Console.WriteLine($"Output path: {AppPaths.OutputDirectory}");
+            Console.WriteLine("Output writable: Not verified (read-only diagnostic)");
+            return tosu.IsAvailable ? 4 : 3;
+        }
+
+        BeatmapInfo map = tosu.Snapshot.Beatmap;
+        Console.WriteLine($"Current beatmap: {map.Artist} - {map.Title} [{map.Difficulty}]");
+        var resolver = new BeatmapPathResolver();
+        PathResolution resolution = resolver.Resolve(map, locatedRoot);
+        Console.WriteLine($"Resolved .osu path: {Display(resolution.Path, "Not resolved")}");
+        Console.WriteLine($"Exists: {(resolution.Path is not null && File.Exists(resolution.Path) ? "Yes" : "No")}");
+        string outputPath = resolution.Path is null
+            ? AppPaths.OutputDirectory
+            : BeatmapGenerationService.FindUniquePath(resolution.Path, " H-RANDOM+",
+                settings.OutputToBeatmapFolder ? null : AppPaths.OutputDirectory);
+        Console.WriteLine($"Output path: {outputPath}");
+        Console.WriteLine("Output writable: Not verified (read-only diagnostic)");
+        return resolution.Success ? 0 : 4;
     }
 
     private static int ProcessArchive(string[] args)
@@ -102,5 +137,23 @@ public static class Program
         Console.WriteLine("HRandomPlus CLI");
         Console.WriteLine("  HRandomPlus.Cli --diagnose [--host 127.0.0.1] [--port 24050] [--osu-path RUTA]");
         Console.WriteLine("  HRandomPlus.Cli <beatmap.osz> [-o salida.osz] [--config config.json] [--seed N]");
+    }
+
+    private static string PlatformName()
+        => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsLinux() ? "Linux" : Environment.OSVersion.Platform.ToString();
+
+    private static string Display(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string? ResolveSongsPath(string? root)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return null;
+        try
+        {
+            string full = Path.GetFullPath(root);
+            string songs = Path.Combine(full, "Songs");
+            return Directory.Exists(songs) ? songs : null;
+        }
+        catch { return null; }
     }
 }

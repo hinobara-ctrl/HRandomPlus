@@ -44,7 +44,7 @@ public sealed class AppSettings
     public int TosuPort { get; set; } = 24050;
     public string? LinuxOsuPath { get; set; }
     public string? LastManualDirectory { get; set; }
-    public bool OutputToBeatmapFolder { get; set; } = OperatingSystem.IsWindows();
+    public bool OutputToBeatmapFolder { get; set; } = true;
     public string LastProfile { get; set; } = "H-Random";
     public bool WholeMap { get; set; } = true;
     public List<RandomProfile> CustomProfiles { get; set; } = new();
@@ -87,6 +87,19 @@ public sealed class SettingsStore
             // Settings are optional. A locked or read-only LocalAppData directory must
             // never prevent the UI from starting.
             Log($"No se pudo cargar la configuración; se usarán defaults en memoria: {ex.Message}");
+            return new AppSettings();
+        }
+    }
+
+    public AppSettings LoadReadOnly()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return new AppSettings();
+            return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Options) ?? new AppSettings();
+        }
+        catch
+        {
             return new AppSettings();
         }
     }
