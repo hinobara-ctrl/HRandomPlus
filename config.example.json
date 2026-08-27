@@ -1,0 +1,24 @@
+{
+  "dynamicThreshold": true,
+  "minThresholdMs": 40,
+  "baseThresholdMs": 100,
+  "maxThresholdMs": 160,
+  "recentUsageWindow": 24,
+  "patternHistoryLength": 16,
+  "weightedTopCandidates": 12,
+  "weightedTemperature": 12,
+  "maxCandidateSets": 4096,
+  "renameDifficulty": true,
+  "difficultySuffix": " H-RANDOM+",
+  "weights": {
+    "timeSinceLastUseBonus": 18,
+    "handBalanceBonus": 6,
+    "distributionBonus": 5,
+    "jackPenalty": 80,
+    "trillPenalty": 25,
+    "repeatedPatternPenalty": 14,
+    "sameHandPenalty": 5,
+    "extremeJumpPenalty": 6,
+    "recentUsagePenalty": 8
+  }
+}

@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+local-nuget/
+.dotnet-cli-home/
+.nuget-http-cache/
+.nuget-packages/
+*.osz
+*.report.json
+AvaloniaUI/
+smoke-localappdata*/

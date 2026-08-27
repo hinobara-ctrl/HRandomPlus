@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>HRandomPlus</AssemblyName>
+    <RootNamespace>HRandomPlus</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OsuMemoryDataProvider" Version="0.12.2" />
+    <ProjectReference Include="..\HRandomPlus.Core\HRandomPlus.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Analysis\**\*.cs" />
+    <Compile Remove="Archives\**\*.cs" />
+    <Compile Remove="Beatmaps\**\*.cs" />
+    <Compile Remove="Core\**\*.cs" />
+    <Compile Remove="Randomization\**\*.cs" />
+    <Compile Remove="Validation\**\*.cs" />
+  </ItemGroup>
+</Project>

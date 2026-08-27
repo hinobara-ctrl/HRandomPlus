@@ -1,0 +1,28 @@
+osu file format v14
+
+[General]
+AudioFilename: audio.txt
+Mode: 3
+
+[Metadata]
+Title:CLI Test
+Artist:Codex
+Creator:Codex
+Version:4K Test
+
+[Difficulty]
+HPDrainRate:5
+CircleSize:4
+OverallDifficulty:8
+
+[TimingPoints]
+0,500,4,2,0,100,1,0
+
+[HitObjects]
+64,192,1000,128,0,1600:0:0:0:0:
+192,192,1000,1,0,0:0:0:0:
+320,192,1100,1,0,0:0:0:0:
+448,192,1200,1,0,0:0:0:0:
+320,192,1300,1,0,0:0:0:0:
+448,192,1400,1,0,0:0:0:0:
+192,192,1600,1,0,0:0:0:0:

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>HRandomPlus.Cli</AssemblyName>
+    <RootNamespace>HRandomPlus.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HRandomPlus.Core\HRandomPlus.Core.csproj" />
+    <ProjectReference Include="..\HRandomPlus.Integration\HRandomPlus.Integration.csproj" />
+  </ItemGroup>
+</Project>

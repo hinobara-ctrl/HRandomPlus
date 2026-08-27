@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HRandomPlus</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\HRandomPlus\Analysis\**\*.cs" Link="Analysis\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\HRandomPlus\Archives\**\*.cs" Link="Archives\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\HRandomPlus\Beatmaps\**\*.cs" Link="Beatmaps\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\HRandomPlus\Core\**\*.cs" Link="Core\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\HRandomPlus\Randomization\**\*.cs" Link="Randomization\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\HRandomPlus\Validation\**\*.cs" Link="Validation\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
