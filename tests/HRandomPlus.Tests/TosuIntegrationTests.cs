@@ -82,6 +82,133 @@ public class TosuIntegrationTests
     }
 
     [Fact]
+    public void DetectionStateTracksDisconnectAndReconnectToSameBeatmap()
+    {
+        var tracker = new DetectionStateTracker();
+        BeatmapSourceResult connected = Found("A", "tosu connected");
+
+        BeatmapDetectionUpdate first = tracker.Observe(connected);
+        BeatmapDetectionUpdate disconnected = tracker.Observe(BeatmapSourceResult.Unavailable("tosu unavailable"));
+        BeatmapDetectionUpdate reconnected = tracker.Observe(connected);
+
+        Assert.True(first.SelectionChanged && first.ConnectivityChanged && first.ShouldUpdateUi);
+        Assert.Equal(BeatmapSelectionOrigin.Automatic, first.EffectiveOrigin);
+        Assert.True(disconnected.ConnectivityChanged && disconnected.ShouldUpdateUi);
+        Assert.Equal(BeatmapSelectionOrigin.Automatic, disconnected.EffectiveOrigin);
+        Assert.Contains("automatically detected", BeatmapStatusFormatter.Format(disconnected, true));
+        Assert.True(!reconnected.SelectionChanged);
+        Assert.True(reconnected.ConnectivityChanged && reconnected.ShouldUpdateUi);
+        Assert.Equal(BeatmapSelectionOrigin.Automatic, reconnected.EffectiveOrigin);
+        Assert.Contains("detected automatically by tosu", BeatmapStatusFormatter.Format(reconnected, true));
+    }
+
+    [Fact]
+    public void ManualSelectionSurvivesDisconnectAndSameMapReconnect()
+    {
+        var tracker = new DetectionStateTracker();
+        _ = tracker.Observe(Found("A", "configured native osu! path"));
+        tracker.MarkManualSelection();
+
+        BeatmapDetectionUpdate disconnected = tracker.Observe(BeatmapSourceResult.Unavailable("tosu unavailable"));
+        Assert.Equal(BeatmapSelectionOrigin.Manual, disconnected.EffectiveOrigin);
+        Assert.Contains("manually selected", BeatmapStatusFormatter.Format(disconnected, true));
+
+        BeatmapDetectionUpdate reconnected = tracker.Observe(Found("A", "configured native osu! path"));
+        Assert.True(!reconnected.SelectionChanged);
+        Assert.True(!reconnected.OriginChanged);
+        Assert.Equal(BeatmapSelectionOrigin.Manual, reconnected.EffectiveOrigin);
+        string status = BeatmapStatusFormatter.Format(reconnected, true);
+        Assert.Contains("Manual beatmap selected", status);
+    }
+
+    [Fact]
+    public void ManualSelectionYieldsWhenTosuChangesToAnotherBeatmap()
+    {
+        var tracker = new DetectionStateTracker();
+        _ = tracker.Observe(Found("A", "configured native osu! path"));
+        tracker.MarkManualSelection();
+
+        BeatmapDetectionUpdate unchanged = tracker.Observe(Found("A", "configured native osu! path"));
+        BeatmapDetectionUpdate changed = tracker.Observe(Found("B", "configured native osu! path"));
+
+        Assert.True(!unchanged.SelectionChanged && !unchanged.OriginChanged);
+        Assert.Equal(BeatmapSelectionOrigin.Manual, unchanged.EffectiveOrigin);
+        Assert.True(changed.SelectionChanged && changed.OriginChanged);
+        Assert.Equal(BeatmapSelectionOrigin.Automatic, changed.EffectiveOrigin);
+        Assert.Contains("detected automatically by tosu", BeatmapStatusFormatter.Format(changed, true));
+    }
+
+    [Fact]
+    public void ManualSelectionWithoutAutomaticBaselineClaimsFirstMapAsBaseline()
+    {
+        var tracker = new DetectionStateTracker();
+        tracker.MarkManualSelection();
+
+        BeatmapDetectionUpdate firstAutomatic = tracker.Observe(Found("A", "configured native osu! path"));
+        BeatmapDetectionUpdate sameAutomatic = tracker.Observe(Found("A", "configured native osu! path"));
+        BeatmapDetectionUpdate changedAutomatic = tracker.Observe(Found("B", "configured native osu! path"));
+
+        Assert.True(!firstAutomatic.SelectionChanged && !firstAutomatic.OriginChanged);
+        Assert.Equal(BeatmapSelectionOrigin.Manual, firstAutomatic.EffectiveOrigin);
+        Assert.True(!sameAutomatic.SelectionChanged && !sameAutomatic.OriginChanged);
+        Assert.True(changedAutomatic.SelectionChanged && changedAutomatic.OriginChanged);
+        Assert.Equal(BeatmapSelectionOrigin.Automatic, changedAutomatic.EffectiveOrigin);
+    }
+
+    [Fact]
+    public void FormatterDistinguishesRealManualSelectionFromAutomaticTosuSelection()
+    {
+        var automaticTracker = new DetectionStateTracker();
+        BeatmapDetectionUpdate automatic = automaticTracker.Observe(Found("A", "configured native osu! path"));
+        Assert.Contains("detected automatically by tosu", BeatmapStatusFormatter.Format(automatic, false));
+
+        var manualTracker = new DetectionStateTracker();
+        BeatmapSourceResult manualResult = BeatmapSourceResult.Found(
+            Found("A", "ignored").Selection!,
+            "",
+            BeatmapSelectionOrigin.Manual);
+        BeatmapDetectionUpdate manual = manualTracker.Observe(manualResult);
+        Assert.Equal("Manual beatmap selected", BeatmapStatusFormatter.Format(manual, false));
+    }
+
+    [Fact]
+    public void DetectionStateTracksMapChangesWithoutConnectivityChange()
+    {
+        var tracker = new DetectionStateTracker();
+        _ = tracker.Observe(Found("A", "tosu connected"));
+        BeatmapDetectionUpdate changed = tracker.Observe(Found("B", "tosu connected"));
+
+        Assert.True(changed.SelectionChanged);
+        Assert.True(!changed.ConnectivityChanged);
+        Assert.True(changed.ShouldUpdateUi);
+    }
+
+    [Fact]
+    public void DetectionStateCoalescesRepeatedFailuresAndRecoversFromUnexpectedError()
+    {
+        var tracker = new DetectionStateTracker();
+        BeatmapDetectionUpdate firstFailure = tracker.Observe(BeatmapSourceResult.Unavailable("unexpected"));
+        BeatmapDetectionUpdate repeatedFailure = tracker.Observe(BeatmapSourceResult.Unavailable("unexpected"));
+        BeatmapDetectionUpdate recovered = tracker.Observe(Found("A", "tosu connected"));
+
+        Assert.True(firstFailure.ShouldUpdateUi);
+        Assert.True(!repeatedFailure.ShouldUpdateUi);
+        Assert.True(recovered.ConnectivityChanged && recovered.ShouldUpdateUi);
+    }
+
+    [Fact]
+    public void DetectionStateHandlesDisconnectedWithoutPreviousMapAndReset()
+    {
+        var tracker = new DetectionStateTracker();
+        BeatmapDetectionUpdate disconnected = tracker.Observe(BeatmapSourceResult.Unavailable("tosu unavailable"));
+        Assert.True(disconnected.ConnectivityChanged && disconnected.ShouldUpdateUi);
+
+        tracker.Reset();
+        BeatmapDetectionUpdate connected = tracker.Observe(Found("A", "tosu connected"));
+        Assert.True(connected.SelectionChanged && connected.ConnectivityChanged && connected.ShouldUpdateUi);
+    }
+
+    [Fact]
     public void TosuMockEndToEndGeneratesSafeReproducibleOutput()
     {
         string root = Path.Combine(Path.GetTempPath(), "HRandomPlusTosuE2E", Guid.NewGuid().ToString("N"));
@@ -108,6 +235,8 @@ public class TosuIntegrationTests
             BeatmapSourceResult detected = source.GetCurrentAsync().GetAwaiter().GetResult();
             Assert.True(detected.Success);
             Assert.Equal(Path.GetFullPath(input), detected.Selection!.NativePath);
+            Assert.Equal(BeatmapSelectionOrigin.Automatic, detected.SelectionOrigin);
+            Assert.Equal("configured native osu! path", detected.Status);
 
             var service = new BeatmapGenerationService();
             var config = new HRandomConfig { Seed = 24680, DifficultySuffix = " E2E" };
@@ -240,6 +369,13 @@ public class TosuIntegrationTests
 
     private static BeatmapInfo Info(string folder, string file)
         => new(1, 2, null, "", "", "", "", folder, file, null);
+
+    private static BeatmapSourceResult Found(string identity, string status)
+    {
+        var info = new BeatmapInfo(1, 2, identity, "Artist", "Title", "Mapper", "Difficulty",
+            "Folder", identity + ".osu", null);
+        return BeatmapSourceResult.Found(new BeatmapSelection(info, Path.GetFullPath(identity + ".osu")), status);
+    }
 
     private static HttpResponseMessage JsonResponse(string json)
         => new(HttpStatusCode.OK) { Content = new StringContent(json) };

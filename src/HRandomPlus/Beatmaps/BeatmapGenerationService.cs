@@ -41,7 +41,7 @@ public sealed class BeatmapGenerationService
         new HRandomPlusEngine(config).Randomize(selected, output.Keys, seed, activeAtStart);
         output.ApplyObjects();
 
-        string suffix = FindUniqueSuffix(inputPath, output.Version, config.DifficultySuffix);
+        string suffix = FindUniqueSuffix(inputPath, output.Version, config.DifficultySuffix, outputDirectory);
         if (config.RenameDifficulty) output.AppendVersionSuffix(suffix);
         output.SetBeatmapId(0);
 
@@ -70,10 +70,16 @@ public sealed class BeatmapGenerationService
         return candidate;
     }
 
-    private static string FindUniqueSuffix(string originalPath, string version, string suffix)
+    private static string FindUniqueSuffix(string originalPath, string version, string suffix, string? outputDirectory)
     {
-        string directory = Path.GetDirectoryName(Path.GetFullPath(originalPath))!;
-        var versions = Directory.EnumerateFiles(directory, "*.osu")
+        string sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(originalPath))!;
+        var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        IEnumerable<string> directories = outputDirectory is null
+            ? new[] { sourceDirectory }
+            : new[] { sourceDirectory, Path.GetFullPath(outputDirectory) }.Distinct(comparer);
+        var versions = directories
+            .Where(Directory.Exists)
+            .SelectMany(directory => Directory.EnumerateFiles(directory, "*.osu"))
             .Select(path => { try { return OsuBeatmapDocument.Parse(path, File.ReadAllBytes(path)).Version; } catch { return string.Empty; } })
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         string candidate = suffix;

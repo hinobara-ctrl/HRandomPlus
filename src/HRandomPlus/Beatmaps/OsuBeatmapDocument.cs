@@ -146,6 +146,37 @@ public sealed class OsuBeatmapDocument
         BeatmapId = value;
     }
 
+    public IReadOnlyList<double> GetBpms()
+    {
+        var bpms = new List<double>();
+        string section = string.Empty;
+        foreach (string line in lines)
+        {
+            string trimmed = line.Trim();
+            if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+            {
+                section = trimmed[1..^1];
+                continue;
+            }
+            if (!section.Equals("TimingPoints", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal))
+                continue;
+
+            string[] fields = trimmed.Split(',');
+            if (fields.Length < 2 ||
+                !double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double beatLength) ||
+                beatLength <= 0)
+                continue;
+            if (fields.Length > 6 && fields[6].Trim() != "1")
+                continue;
+
+            double bpm = 60000d / beatLength;
+            if (double.IsFinite(bpm) && bpm > 0 && bpms.All(value => Math.Abs(value - bpm) > 0.0001))
+                bpms.Add(bpm);
+        }
+        return bpms;
+    }
+
     private void SetKeyValue(string targetSection, string key, string value)
     {
         string section = string.Empty;

@@ -213,6 +213,65 @@ public class ApplicationTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Theory]
+    [InlineData(" S-Random")]
+    [InlineData(" H-Random")]
+    [InlineData(" Custom 日本語!")]
+    public void RepeatedGenerationUsesUniqueVersionAndFilenameOutsideSongs(string suffix)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlus Repeated 'ü!", Guid.NewGuid().ToString("N"));
+        string songDirectory = Path.Combine(root, "Songs", "123 Artist's - Song!");
+        string outputDirectory = Path.Combine(root, "Generated 日本語");
+        Directory.CreateDirectory(songDirectory);
+        try
+        {
+            string input = Path.Combine(songDirectory, "Artist - Song [Life].osu");
+            byte[] original = TestBeatmaps.Mania(4,
+                Enumerable.Range(0, 12).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)), "Life");
+            File.WriteAllBytes(input, original);
+            var service = new BeatmapGenerationService();
+            var config = new HRandomConfig { Seed = 123, DifficultySuffix = suffix };
+
+            GenerationResult first = service.Generate(input, config, null, outputDirectory);
+            GenerationResult second = service.Generate(input, config, null, outputDirectory);
+            GenerationResult third = service.Generate(input, config, null, outputDirectory);
+
+            Assert.Equal("Life" + suffix, first.OutputVersion);
+            Assert.Equal("Life" + suffix + " 2", second.OutputVersion);
+            Assert.Equal("Life" + suffix + " 3", third.OutputVersion);
+            Assert.True(first.OutputPath != second.OutputPath && second.OutputPath != third.OutputPath);
+            Assert.True(File.Exists(first.OutputPath) && File.Exists(second.OutputPath) && File.Exists(third.OutputPath));
+            Assert.Equal(original, File.ReadAllBytes(input));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ExistingFilenameCollisionIsNeverOverwritten()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusFilenameCollision", Guid.NewGuid().ToString("N"));
+        string songDirectory = Path.Combine(root, "Songs", "Map");
+        string outputDirectory = Path.Combine(root, "Generated");
+        Directory.CreateDirectory(songDirectory);
+        Directory.CreateDirectory(outputDirectory);
+        try
+        {
+            string input = Path.Combine(songDirectory, "map.osu");
+            File.WriteAllBytes(input, TestBeatmaps.Mania(4,
+                Enumerable.Range(0, 12).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)), "Life"));
+            string collision = Path.Combine(outputDirectory, "map S-Random.osu");
+            File.WriteAllText(collision, "do not overwrite");
+
+            GenerationResult result = new BeatmapGenerationService().Generate(input,
+                new HRandomConfig { Seed = 123, DifficultySuffix = " S-Random" }, null, outputDirectory);
+
+            Assert.True(result.OutputPath != collision);
+            Assert.Equal("do not overwrite", File.ReadAllText(collision));
+            Assert.Equal("Life S-Random", result.OutputVersion);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Fact]
     public void SelectedRangeRespectsLongNotesCrossingItsBoundaries()
     {

@@ -10,3 +10,4 @@ local-nuget/
 *.report.json
 AvaloniaUI/
 smoke-localappdata*/
+PROJECT_CONTEXT_AND_NEXT_STEPS.txt

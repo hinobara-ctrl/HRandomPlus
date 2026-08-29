@@ -26,13 +26,16 @@ jobs:
       - run: dotnet restore src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -r win-x64
       - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0-windows -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/windows-x64 --no-restore
       - shell: pwsh
-        run: Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/HRandomPlus-windows-x64.zip
+        run: |
+          Copy-Item README.md, LICENSE, config.example.json artifacts/windows-x64/
+          $packageFiles = Get-ChildItem artifacts/windows-x64 -File | Where-Object Extension -ne '.pdb'
+          Compress-Archive -Path $packageFiles.FullName -DestinationPath artifacts/HRandomPlus-windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: HRandomPlus-windows-x64
           path: artifacts/HRandomPlus-windows-x64.zip
 
-  linux-artifacts:
+  linux-artifact:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,16 +43,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet restore src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -r linux-x64
-      - run: dotnet restore src/HRandomPlus.Cli/HRandomPlus.Cli.csproj -r linux-x64
-      - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0 -r linux-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/linux-x64 --no-restore
-      - run: dotnet publish src/HRandomPlus.Cli/HRandomPlus.Cli.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/linux-x64-cli --no-restore
-      - run: cd artifacts/linux-x64 && zip -r ../HRandomPlus-linux-x64.zip .
-      - run: cd artifacts/linux-x64-cli && zip -r ../HRandomPlus-linux-x64-cli.zip .
+      - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0 -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/linux-x64 --no-restore
+      - run: cp README.md LICENSE config.example.json artifacts/linux-x64/
+      - run: cd artifacts/linux-x64 && zip -r ../HRandomPlus-linux-x64.zip . -x '*.pdb'
       - uses: actions/upload-artifact@v4
         with:
           name: HRandomPlus-linux-x64
           path: artifacts/HRandomPlus-linux-x64.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: HRandomPlus-linux-x64-cli
-          path: artifacts/HRandomPlus-linux-x64-cli.zip

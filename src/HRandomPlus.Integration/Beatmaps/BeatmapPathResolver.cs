@@ -17,10 +17,10 @@ public sealed class BeatmapPathResolver
     public PathResolution Resolve(BeatmapInfo beatmap, string? configuredOsuRoot = null)
     {
         if (OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(beatmap.DirectBeatmapPath) && File.Exists(beatmap.DirectBeatmapPath))
-            return new PathResolution(Path.GetFullPath(beatmap.DirectBeatmapPath), "Ruta directa de tosu");
+            return new PathResolution(Path.GetFullPath(beatmap.DirectBeatmapPath), "direct path supplied by tosu");
 
         string? osuRoot = configuredOsuRoot;
-        string rootStatus = "Ruta configurada manualmente";
+        string rootStatus = "configured native osu! path";
         if (string.IsNullOrWhiteSpace(osuRoot) && !winelloLocator.TryLocate(out osuRoot, out rootStatus))
             return new PathResolution(null, rootStatus);
         if (string.IsNullOrWhiteSpace(osuRoot))

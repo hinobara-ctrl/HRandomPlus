@@ -19,12 +19,25 @@ public sealed record BeatmapInfo(
 
 public sealed record BeatmapSelection(BeatmapInfo Beatmap, string NativePath);
 
-public sealed record BeatmapSourceResult(BeatmapSelection? Selection, string Status, bool IsAvailable)
+public enum BeatmapSelectionOrigin
+{
+    Automatic,
+    Manual
+}
+
+public sealed record BeatmapSourceResult(
+    BeatmapSelection? Selection,
+    string Status,
+    bool IsAvailable,
+    BeatmapSelectionOrigin? SelectionOrigin = null)
 {
     public bool Success => Selection is not null;
 
-    public static BeatmapSourceResult Found(BeatmapSelection selection, string status = "Beatmap detected")
-        => new(selection, status, true);
+    public static BeatmapSourceResult Found(
+        BeatmapSelection selection,
+        string status = "Beatmap detected",
+        BeatmapSelectionOrigin origin = BeatmapSelectionOrigin.Automatic)
+        => new(selection, status, true, origin);
 
     public static BeatmapSourceResult Unavailable(string status)
         => new(null, status, false);

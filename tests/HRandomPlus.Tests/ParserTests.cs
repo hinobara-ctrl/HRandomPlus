@@ -50,4 +50,29 @@ public class ParserTests
             Assert.Equal(column, document.HitObjects[0].OriginalColumn);
         }
     }
+
+    [Fact]
+    public void ReadsDistinctUninheritedBpmsInTimingOrder()
+    {
+        string text = Encoding.UTF8.GetString(TestBeatmaps.Mania(4, new[] { TestBeatmaps.Note(4, 0, 1000) }))
+            .Replace("0,500,4,2,0,100,1,0",
+                "0,500,4,2,0,100,1,0\n1000,-50,4,2,0,100,0,0\n2000,333.333333,4,2,0,100,1,0\n3000,500,4,2,0,100,1,0",
+                StringComparison.Ordinal);
+        OsuBeatmapDocument document = OsuBeatmapDocument.Parse("timing.osu", Encoding.UTF8.GetBytes(text));
+
+        IReadOnlyList<double> bpms = document.GetBpms();
+        Assert.Equal(2, bpms.Count);
+        Assert.InRange(bpms[0], 119.999, 120.001);
+        Assert.InRange(bpms[1], 179.999, 180.001);
+    }
+
+    [Fact]
+    public void CalculatesMillisecondsForCommonBeatSnaps()
+    {
+        Assert.Equal(new[] { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64 },
+            BeatSnapReference.CommonDivisors);
+        Assert.InRange(BeatSnapReference.Milliseconds(180, 1), 333.332, 333.334);
+        Assert.InRange(BeatSnapReference.Milliseconds(180, 4), 83.332, 83.334);
+        Assert.InRange(BeatSnapReference.Milliseconds(180, 8), 41.666, 41.667);
+    }
 }

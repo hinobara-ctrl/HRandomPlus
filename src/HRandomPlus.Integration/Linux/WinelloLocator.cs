@@ -53,7 +53,7 @@ public sealed class WinelloLocator
             }
 
             osuRoot = candidate;
-            status = "Ruta nativa de osu-winello detectada";
+            status = "native osu-winello path detected";
             return true;
         }
         catch (Exception ex)

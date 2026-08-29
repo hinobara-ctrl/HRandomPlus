@@ -13,6 +13,8 @@ Versión actual: **v0.1.0-playtest**. Está dirigida a osu!stable. **osu!lazer t
 - Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
 - Selector manual `.osu` en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
+- Referencia visual editable de BPM a milisegundos para snaps de 1/1 a 1/64.
+- Version y filename únicos incluso al repetir el mismo perfil antes de que osu! refresque.
 
 ## Windows
 
@@ -42,6 +44,8 @@ $XDG_DATA_HOME/osuconfig/osupath
 
 Para instalaciones personalizadas, usa **Configure native osu! path** y selecciona la raíz que contiene `Songs`. No hace falta `sudo`.
 
+Si eliges un `.osu` con **Select .osu manually**, esa selección conserva prioridad mientras osu! siga mostrando el mismo mapa que tosu ya había detectado. Al cambiar de mapa dentro de osu!, HRandomPlus retoma la detección automática.
+
 Las configuraciones nuevas de Linux escriben de forma predeterminada junto al beatmap. Desmarcar **Write beside the original beatmap** usa:
 
 ```text
@@ -51,7 +55,9 @@ $XDG_DATA_HOME/HRandomPlus/Generated Beatmaps
 
 Una preferencia ya guardada se respeta al actualizar. La aplicación siempre conserva el `.osu` generado aunque falle la actualización/importación.
 
-La detección inmediata de archivos nuevos bajo Wine depende del entorno. En esta versión el auto-import mediante Winello está preparado y probado con procesos simulados, pero **NOT TESTED ON REAL WINE** y no se habilita como si estuviera validado. Si la dificultad no aparece, pulsa F5 o impórtala manualmente. Consulta [la prueba A/B](docs/LINUX_IMPORT_AB_TEST.md).
+Cuando se escribe junto al beatmap, HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más `osu-wine --wine cmd copy` para materializarla desde el mismo entorno Wine de osu!stable. No construye rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5; si también falla el fallback, conserva el output central para importación manual.
+
+La [prueba A/B real](docs/LINUX_IMPORT_AB_TEST.md) confirmó que la copia Linux nativa necesitó F5 mientras la copia Wine-side fue detectada sin F5. Esto verifica el comportamiento funcional, no la API o mecanismo interno exacto de notificación del filesystem.
 
 ## Diagnóstico tosu
 
@@ -80,7 +86,6 @@ HRandomPlus.Core         motor, parser, archivos, perfiles y validación
 HRandomPlus.Integration  tosu, osu-winello, rutas y contratos
 HRandomPlus.Desktop      UI Avalonia para Windows/Linux
 HRandomPlus.Cli          diagnóstico y procesamiento .osz
-HRandomPlus.Windows      interfaz WinForms anterior conservada temporalmente
 HRandomPlus.Tests        regresión portable e integración
 ```
 
@@ -116,8 +121,6 @@ dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
   -p:PublishSingleFile=true -o publish/win-x64-avalonia
 ```
 
-La interfaz WinForms anterior sigue compilable desde `src/HRandomPlus/HRandomPlus.csproj` durante la comprobación de paridad.
-
 ## CLI OSZ
 
 ```bash
@@ -126,7 +129,7 @@ HRandomPlus.Cli beatmap.osz --seed 123456 --config config.example.json
 
 ## Pruebas
 
-El runner cubre parser, OSZ, perfiles/seed, configuración y defaults, salida segura, rangos, seeds reproducibles, keymodes 4K–9K, long notes, JSON/reconexión/timeout de tosu, rutas Winello, E2E tosu simulado e importación Winello simulada.
+El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 4K–9K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side simulada y sus fallbacks.
 
 Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PLAYTEST_CHECKLIST.md).
 

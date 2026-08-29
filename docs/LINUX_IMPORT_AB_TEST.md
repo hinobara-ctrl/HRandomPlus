@@ -1,6 +1,12 @@
 # Prueba A/B de importación Linux
 
-Estado: **NOT TESTED ON REAL WINE**.
+Estado: **VERIFIED ON REAL LINUX VM + osu-winello + Wine**.
+
+Resultado observado:
+
+- Copia Linux nativa: el `.osu` se creó correctamente, pero osu!stable no lo detectó al salir y volver a Song Select; F5 fue necesario.
+- Copia mediante `osu-wine --wine cmd copy`: osu!stable detectó la dificultad sin F5; salir y volver a Song Select fue suficiente.
+- No está probado cuál API o mecanismo de notificación explica la diferencia. No se debe afirmar como hecho que sea inotify o `ReadDirectoryChangesW`.
 
 Registra distribución, filesystem de `Songs`, versión de osu-winello/Wine y si osu! estaba abierto en Song Select. Usa siempre un nombre de dificultad nuevo; no sobrescribas archivos.
 
@@ -35,8 +41,11 @@ osu-wine --wine cmd /d /c copy /y "$SOURCE_WIN" "$DEST_WIN"
 
 Espera unos segundos sin pulsar F5 y anota si aparece la dificultad.
 
-## Interpretación
+## Interpretación y comportamiento implementado
 
-- Si B funciona y A no: habilitar una estrategia de copia Wine-side.
-- Si ninguna funciona: validar la estrategia `.osz` preparada mediante `osu-wine --osuhandler archivo.osz`.
-- Si falla cualquier importación, el `.osu` generado debe permanecer disponible y F5/importación manual debe seguir funcionando.
+- La aplicación selecciona Wine-side solamente en Linux, cuando **Write beside the original beatmap** está activo.
+- El output central deliberado no se copia silenciosamente a `Songs`.
+- Cada ruta se convierte mediante `winepath`; nunca se construye `Z:` manualmente.
+- Si Wine-side falla, la copia nativa conserva el resultado y la UI recomienda F5.
+- Si también falla la copia nativa, el `.osu` queda preservado en la carpeta central para importación manual.
+- Los fallos y paths complejos están **MOCK TESTED**; la prueba manual de esta integración completa debe repetirse con cada release candidate.

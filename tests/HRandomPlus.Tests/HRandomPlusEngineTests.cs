@@ -63,6 +63,21 @@ public class HRandomPlusEngineTests
     }
 
     [Fact]
+    public void DifferentSeedsProduceDifferentAssignments()
+    {
+        string[] lines = Enumerable.Range(0, 80).Select(i => TestBeatmaps.Note(7, i % 7, 1000 + i * 73)).ToArray();
+        OsuBeatmapDocument first = OsuBeatmapDocument.Parse("a.osu", TestBeatmaps.Mania(7, lines));
+        OsuBeatmapDocument second = OsuBeatmapDocument.Parse("a.osu", TestBeatmaps.Mania(7, lines));
+        var config = new HRandomConfig();
+
+        new HRandomPlusEngine(config).Randomize(first.HitObjects, 7, 111);
+        new HRandomPlusEngine(config).Randomize(second.HitObjects, 7, 222);
+
+        Assert.True(!first.HitObjects.Select(h => h.AssignedColumn)
+            .SequenceEqual(second.HitObjects.Select(h => h.AssignedColumn)));
+    }
+
+    [Fact]
     public void LongNotesRemainLockedAndChordsAvoidTheirColumns()
     {
         string[] lines =

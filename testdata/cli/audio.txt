@@ -1,1 +1,0 @@
-Recurso de prueba que debe preservarse byte por byte.

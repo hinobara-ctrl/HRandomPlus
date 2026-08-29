@@ -19,7 +19,8 @@ public sealed class MainWindow : Window
     private readonly AppSettings settings;
     private IBeatmapSource source;
     private readonly BeatmapGenerationService generator = new();
-    private readonly IBeatmapImporter importer = new DirectFileImporter();
+    private readonly IProcessRunner processRunner = new SystemProcessRunner();
+    private readonly DetectionStateTracker detectionState = new();
     private readonly CancellationTokenSource pollingCancellation = new();
     private readonly List<RandomProfile> profiles = new();
     private readonly Dictionary<string, TextBox> editors = new();
@@ -36,15 +37,15 @@ public sealed class MainWindow : Window
     private readonly CheckBox dynamicThreshold = new() { Content = "Dynamic threshold" };
     private readonly CheckBox renameDifficulty = new() { Content = "Rename difficulty" };
     private readonly CheckBox outputToBeatmapFolder = new() { Content = "Write beside the original beatmap" };
+    private readonly TextBox bpmBox = new() { PlaceholderText = "Select a beatmap" };
+    private readonly TextBlock detectedBpms = Text("Detected BPMs: —");
+    private readonly Dictionary<int, TextBlock> snapValues = new();
     private readonly TextBox tosuHost = new();
     private readonly TextBox tosuPort = new();
     private readonly Button randomizeButton = new() { Content = "RANDOMIZE CURRENT MAP", IsEnabled = false, Height = 46 };
 
     private HRandomConfig activeConfig = new();
     private string? currentPath;
-    private string? lastDetectedIdentity;
-    private string? lastDetectionStatus;
-    private bool? lastSourceAvailable;
     private bool randomizing;
 
     public MainWindow()
@@ -138,6 +139,12 @@ public sealed class MainWindow : Window
         AddEditor(parameters, "MinThresholdMs", "Minimum threshold (ms)");
         AddEditor(parameters, "BaseThresholdMs", "Base threshold (ms)");
         AddEditor(parameters, "MaxThresholdMs", "Maximum threshold (ms)");
+        parameters.Children.Add(Section("BPM / SNAP REFERENCE"));
+        bpmBox.TextChanged += (_, _) => UpdateSnapReference();
+        parameters.Children.Add(Labeled("Reference BPM", bpmBox));
+        parameters.Children.Add(detectedBpms);
+        parameters.Children.Add(Text("Formula: 60000 ÷ BPM ÷ snap. The BPM field is editable."));
+        parameters.Children.Add(BuildSnapReference());
         AddEditor(parameters, "RecentUsageWindow", "Recent usage window");
         AddEditor(parameters, "PatternHistoryLength", "Pattern history length");
         AddEditor(parameters, "WeightedTopCandidates", "Weighted top candidates");
@@ -178,6 +185,7 @@ public sealed class MainWindow : Window
             {
                 settings.LastManualDirectory = Path.GetDirectoryName(path);
                 SaveSettings();
+                detectionState.MarkManualSelection();
                 SetBeatmap(path, "Manual beatmap selected");
             }
         }
@@ -248,6 +256,11 @@ public sealed class MainWindow : Window
         beatmapTitle.Text = $"{document.Artist} - {document.Title}";
         beatmapDetails.Text = $"[{document.Version}]  ·  {document.Creator}  ·  {document.Keys}K";
         beatmapPath.Text = path;
+        IReadOnlyList<double> bpms = document.GetBpms();
+        detectedBpms.Text = bpms.Count == 0
+            ? "Detected BPMs: none"
+            : "Detected BPMs: " + string.Join(", ", bpms.Select(FormatNumber));
+        bpmBox.Text = bpms.Count == 0 ? string.Empty : FormatNumber(bpms[0]);
         randomizeButton.IsEnabled = true;
         SetStatus(state);
         store.Log($"Beatmap selected: {path}");
@@ -268,35 +281,37 @@ public sealed class MainWindow : Window
                     if (cancellationToken.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        if (result.Selection is not null && result.Selection.Beatmap.Identity != lastDetectedIdentity)
+                        BeatmapDetectionUpdate update = detectionState.Observe(result);
+                        if ((update.SelectionChanged || update.OriginChanged) && result.Selection is not null)
                         {
-                            lastDetectedIdentity = result.Selection.Beatmap.Identity;
-                            try { SetBeatmap(result.Selection.NativePath, result.Status); }
+                            try { SetBeatmap(result.Selection.NativePath, BeatmapStatusFormatter.Format(update, currentPath is not null)); }
                             catch (Exception ex) { SetStatus(ex.Message); }
                         }
-                        else if (currentPath is null) SetStatus(result.Status);
-                        if (lastSourceAvailable != result.IsAvailable)
+                        else if (update.ShouldUpdateUi)
                         {
-                            lastSourceAvailable = result.IsAvailable;
+                            SetStatus(BeatmapStatusFormatter.Format(update, currentPath is not null));
+                        }
+                        if (update.ConnectivityChanged)
+                        {
                             store.Log(result.IsAvailable ? "Detection source connected" : "Detection source disconnected");
                         }
-                        if (lastDetectionStatus != result.Status)
-                        {
-                            lastDetectionStatus = result.Status;
+                        if (update.StatusChanged)
                             store.Log($"Detection status: {result.Status}");
-                        }
                     });
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
                     string message = $"Unexpected polling error: {ex.Message}";
-                    if (lastDetectionStatus != message)
+                    if (!cancellationToken.IsCancellationRequested)
                     {
-                        lastDetectionStatus = message;
-                        store.Log(message);
-                        if (!cancellationToken.IsCancellationRequested)
-                            await Dispatcher.UIThread.InvokeAsync(() => SetStatus(message));
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            BeatmapDetectionUpdate update = detectionState.Observe(BeatmapSourceResult.Unavailable(message));
+                            if (update.ConnectivityChanged) store.Log("Detection source disconnected");
+                            if (update.StatusChanged) store.Log(message);
+                            if (update.ShouldUpdateUi) SetStatus(BeatmapStatusFormatter.Format(update, currentPath is not null));
+                        });
                     }
                 }
             }
@@ -320,18 +335,23 @@ public sealed class MainWindow : Window
             randomizing = true;
             randomizeButton.IsEnabled = false;
             SetStatus("Randomizing...");
-            string? outputDirectory = outputToBeatmapFolder.IsChecked == true ? null : AppPaths.OutputDirectory;
-            store.Log($"Randomize started; platform={Environment.OSVersion.Platform}; beatmap={snapshot}; profile={profile}; range={rangeDescription}; seed={(config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "random")}; importStrategy=direct-file");
+            bool outputBeside = outputToBeatmapFolder.IsChecked == true;
+            bool useWineSide = BeatmapImportPolicy.ShouldUseWineSide(OperatingSystem.IsLinux(), outputBeside);
+            string? outputDirectory = outputBeside && !useWineSide ? null : AppPaths.OutputDirectory;
+            IBeatmapImporter importer = useWineSide
+                ? new WineSideFileImporter(processRunner)
+                : new DirectFileImporter();
+            string importStrategy = useWineSide ? "wine-side-copy" : "direct-file";
+            store.Log($"Randomize started; platform={Environment.OSVersion.Platform}; beatmap={snapshot}; profile={profile}; range={rangeDescription}; seed={(config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "random")}; importStrategy={importStrategy}");
             GenerationResult result = await Task.Run(() => generator.Generate(snapshot, config, range, outputDirectory));
             BeatmapImportResult import = await importer.ImportAsync(
                 new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory),
                 pollingCancellation.Token);
             seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
-            string linuxFallback = OperatingSystem.IsLinux()
-                ? "\nAutomatic Wine import: NOT TESTED. If osu! does not refresh, use F5 or import manually."
-                : string.Empty;
-            SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {result.OutputPath}{linuxFallback}");
-            store.Log($"Randomize completed; output={result.OutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; importResult={(import.Success ? "output-preserved" : import.Message)}");
+            string importMessage = useWineSide ? $"\n{import.Message}" : string.Empty;
+            SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {import.PreservedOutputPath}{importMessage}");
+            store.Log($"Randomize completed; output={import.PreservedOutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; automaticAttempted={import.AutomaticImportAttempted}; fallback={import.FallbackUsed}; importSuccess={import.Success}; message={import.Message}");
+            if (!string.IsNullOrWhiteSpace(import.Diagnostics)) store.Log($"Import diagnostics: {import.Diagnostics}");
         }
         catch (Exception ex) { ShowError(ex); }
         finally
@@ -475,6 +495,48 @@ public sealed class MainWindow : Window
         panel.Children.Add(Labeled(label, editor));
     }
 
+    private Control BuildSnapReference()
+    {
+        int rowCount = (BeatSnapReference.CommonDivisors.Count + 1) / 2;
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,*"),
+            RowDefinitions = new RowDefinitions(string.Join(',', Enumerable.Repeat("Auto", rowCount))),
+            ColumnSpacing = 8,
+            RowSpacing = 3,
+            Margin = new Thickness(0, 4, 0, 4)
+        };
+        for (int index = 0; index < BeatSnapReference.CommonDivisors.Count; index++)
+        {
+            int divisor = BeatSnapReference.CommonDivisors[index];
+            int row = index / 2;
+            int column = (index % 2) * 2;
+            TextBlock label = Text($"BPM/{divisor} (1/{divisor})");
+            var value = Text("—");
+            value.FontWeight = FontWeight.SemiBold;
+            snapValues[divisor] = value;
+            Grid.SetRow(label, row); Grid.SetColumn(label, column);
+            Grid.SetRow(value, row); Grid.SetColumn(value, column + 1);
+            grid.Children.Add(label);
+            grid.Children.Add(value);
+        }
+        return grid;
+    }
+
+    private void UpdateSnapReference()
+    {
+        string text = bpmBox.Text?.Trim() ?? string.Empty;
+        bool parsed = double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out double bpm) ||
+                      double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out bpm);
+        foreach ((int divisor, TextBlock value) in snapValues)
+            value.Text = parsed && double.IsFinite(bpm) && bpm > 0
+                ? $"{BeatSnapReference.Milliseconds(bpm, divisor):0.###} ms"
+                : "—";
+    }
+
+    private static string FormatNumber(double value)
+        => value.ToString("0.###", CultureInfo.InvariantCulture);
+
     private void Set(string key, object value) => editors[key].Text = Convert.ToString(value, CultureInfo.InvariantCulture);
     private string Value(string key) => editors[key].Text ?? string.Empty;
     private int Int(string key) => int.Parse(Value(key), CultureInfo.InvariantCulture);
@@ -486,8 +548,7 @@ public sealed class MainWindow : Window
     {
         IBeatmapSource previous = source;
         source = replacement;
-        lastDetectionStatus = null;
-        lastSourceAvailable = null;
+        detectionState.Reset();
         DisposeSource(previous);
     }
     private static void DisposeSource(IBeatmapSource value)
