@@ -298,6 +298,375 @@ public class ApplicationTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public void PersistentCustomRoundTripPreservesEveryField()
+    {
+        HRandomConfig expected = CompleteConfig();
+        string root = TemporaryDirectory("PersistentCustom");
+        try
+        {
+            var store = new SettingsStore(root);
+            store.Save(new AppSettings { CustomConfig = expected });
+            AppSettings loaded = store.Load();
+            AssertConfigEqual(expected, loaded.CustomConfig!);
+            Assert.True(loaded.CustomProfileId != Guid.Empty);
+            RandomProfile custom = ProfileCatalog.CreateBuiltIns(loaded.CustomConfig, loaded.CustomProfileId)
+                .Single(profile => profile.Name == ProfileCatalog.CustomName);
+            AssertConfigEqual(expected, custom.Config);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void BuiltInProfilesRemainImmutableAcrossCatalogInstances()
+    {
+        RandomProfile firstH = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.HRandomName);
+        RandomProfile firstS = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.SRandomName);
+        firstH.Config.Weights.JackPenalty = -999;
+        firstS.Config.WeightedTopCandidates = 1;
+
+        RandomProfile nextH = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.HRandomName);
+        RandomProfile nextS = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.SRandomName);
+        Assert.Equal(80d, nextH.Config.Weights.JackPenalty);
+        Assert.Equal(4096, nextS.Config.WeightedTopCandidates);
+        Assert.Equal(" H-RANDOM+", nextH.Config.DifficultySuffix);
+        Assert.Equal(" S-RANDOM", nextS.Config.DifficultySuffix);
+    }
+
+    [Fact]
+    public void SaveCustomRepeatedlyUpdatesOnePersistentSlotAndResetRestoresDefaults()
+    {
+        var settings = new AppSettings { CustomConfig = ProfileCatalog.DefaultCustom(), CustomProfileId = Guid.NewGuid() };
+        RandomProfile custom = ProfileCatalog.CreateBuiltIns(settings.CustomConfig, settings.CustomProfileId)
+            .Single(profile => profile.Name == ProfileCatalog.CustomName);
+        ProfileOperations.Save(custom, settings, new HRandomConfig { Seed = 10, DifficultySuffix = " ONE" });
+        ProfileOperations.Save(custom, settings, new HRandomConfig { Seed = 20, DifficultySuffix = " TWO" });
+        Assert.Equal(20L, settings.CustomConfig!.Seed);
+        Assert.Equal(" TWO", custom.Config.DifficultySuffix);
+        Assert.Equal(0, settings.CustomProfiles.Count);
+
+        ProfileOperations.ResetCustom(custom, settings);
+        Assert.Equal<long?>(null, settings.CustomConfig!.Seed);
+        Assert.Equal(" CUSTOM", settings.CustomConfig.DifficultySuffix);
+        Assert.Equal(" CUSTOM", custom.Config.DifficultySuffix);
+    }
+
+    [Fact]
+    public void ProtectedPresetsCannotBeSavedOrReset()
+    {
+        var settings = new AppSettings();
+        RandomProfile h = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.HRandomName);
+        RandomProfile s = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.SRandomName);
+        AssertFails<InvalidOperationException>(() => ProfileOperations.Save(h, settings, new HRandomConfig { DifficultySuffix = " CHANGED" }));
+        AssertFails<InvalidOperationException>(() => ProfileOperations.Save(s, settings, new HRandomConfig { DifficultySuffix = " CHANGED" }));
+        AssertFails<InvalidOperationException>(() => ProfileOperations.ResetCustom(h, settings));
+        Assert.Equal(" H-RANDOM+", h.Config.DifficultySuffix);
+        Assert.Equal(" S-RANDOM", s.Config.DifficultySuffix);
+    }
+
+    [Fact]
+    public void LegacyCustomMigrationUsesLastCustomAndPreservesEarlierEntries()
+    {
+        var settings = new AppSettings
+        {
+            CustomProfiles = new List<RandomProfile>
+            {
+                new() { Name = " Custom ", Config = new HRandomConfig { Seed = 1, DifficultySuffix = " FIRST" } },
+                new() { Name = "Legacy", Config = new HRandomConfig { Seed = 3, DifficultySuffix = " LEGACY" } },
+                new() { Name = "custom", Config = new HRandomConfig { Seed = 2, DifficultySuffix = " LAST" } }
+            }
+        };
+
+        Assert.True(ProfileSettingsMigration.Apply(settings));
+        Assert.Equal(2L, settings.CustomConfig!.Seed);
+        Assert.Equal(2, settings.CustomProfiles.Count);
+        Assert.True(settings.CustomProfiles.All(profile => profile.Id != Guid.Empty));
+        Assert.True(settings.CustomProfiles.All(profile => !ProfileCatalog.IsReservedName(profile.Name)));
+        Assert.True(settings.CustomProfiles.Any(profile => profile.Config.Seed == 1));
+        Assert.True(settings.CustomProfiles.Any(profile => profile.Config.Seed == 3));
+        Assert.True(!ProfileSettingsMigration.Apply(settings));
+    }
+
+    [Fact]
+    public void MigrationRenamesReservedProfilesDeterministicallyAndOnlyOnce()
+    {
+        var settings = new AppSettings
+        {
+            CustomConfig = ProfileCatalog.DefaultCustom(),
+            CustomProfileId = Guid.NewGuid(),
+            CustomProfiles = new List<RandomProfile>
+            {
+                new() { Name = "H-Random", Config = new HRandomConfig() },
+                new() { Name = " h-random ", Config = new HRandomConfig() },
+                new() { Name = "S-Random", Config = new HRandomConfig() }
+            }
+        };
+        Assert.True(ProfileSettingsMigration.Apply(settings));
+        string[] names = settings.CustomProfiles.Select(profile => profile.Name).ToArray();
+        Assert.Equal(new[] { "H-Random (Imported)", "h-random (Imported) (2)", "S-Random (Imported)" }, names);
+        Assert.True(!ProfileSettingsMigration.Apply(settings));
+        Assert.Equal(names, settings.CustomProfiles.Select(profile => profile.Name));
+    }
+
+    [Fact]
+    public void DuplicateCreatesIndependentGuidAndUniqueName()
+    {
+        RandomProfile source = ProfileCatalog.BuiltIns.Single(profile => profile.Name == ProfileCatalog.HRandomName);
+        RandomProfile copy = ProfileOperations.Duplicate(source, source.Config, "Training", "  shared settings  ", new[] { "Training" });
+        Assert.True(copy.Id != Guid.Empty && copy.Id != source.Id);
+        Assert.Equal("Training (2)", copy.Name);
+        Assert.Equal("shared settings", copy.Description);
+        copy.Config.Weights.JackPenalty = 1;
+        Assert.Equal(80d, source.Config.Weights.JackPenalty);
+    }
+
+    [Theory]
+    [InlineData("H-Random")]
+    [InlineData(" h-random ")]
+    [InlineData("S-RANDOM")]
+    [InlineData(" custom ")]
+    public void ReservedPersonalNamesAreRejected(string name)
+    {
+        AssertFails<ArgumentException>(() => ProfileNames.ValidatePersonalName(name));
+    }
+
+    [Fact]
+    public void ProfileExportImportRoundTripPreservesAllFieldsSeedAndUnicode()
+    {
+        var expected = new RandomProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "Jacks moderados 日本語",
+            Description = "Perfil compartido — 1/4",
+            Config = CompleteConfig()
+        };
+        byte[] serialized = ProfileTransfer.Serialize(expected);
+        RandomProfile actual = ProfileTransfer.Deserialize(serialized);
+        Assert.Equal(expected.Id, actual.Id);
+        Assert.Equal(expected.Name, actual.Name);
+        Assert.Equal(expected.Description, actual.Description);
+        AssertConfigEqual(expected.Config, actual.Config);
+        Assert.True(serialized.Length < 3 || serialized[0] != 0xEF || serialized[1] != 0xBB || serialized[2] != 0xBF);
+    }
+
+    [Fact]
+    public void ExportContainsOnlyProfileDataAndNoGlobalSettings()
+    {
+        var profile = new RandomProfile { Id = Guid.NewGuid(), Name = "Safe", Config = CompleteConfig() };
+        string json = System.Text.Encoding.UTF8.GetString(ProfileTransfer.Serialize(profile));
+        foreach (string forbidden in new[] { "osuPath", "linuxOsuPath", "lastManualDirectory", "tosuHost", "tosuPort", "outputToBeatmapFolder", "beatmapPath", "logs" })
+            Assert.True(!json.Contains(forbidden, StringComparison.OrdinalIgnoreCase), forbidden);
+        Assert.Contains("\"format\": \"HRandomPlus.Profile\"", json);
+        Assert.Contains("\"profileId\"", json);
+    }
+
+    [Fact]
+    public void InvalidAndOversizedProfileFilesAreRejected()
+    {
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(System.Text.Encoding.UTF8.GetBytes("{broken")));
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(new byte[ProfileTransfer.MaximumFileBytes + 1]));
+    }
+
+    [Fact]
+    public void MissingRequiredProfileFieldsAreRejected()
+    {
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(System.Text.Encoding.UTF8.GetBytes("{}")));
+        string missingConfig = $$"""
+        {
+          "format": "{{ProfileTransfer.Format}}",
+          "formatVersion": {{ProfileTransfer.FormatVersion}},
+          "profileId": "{{Guid.NewGuid()}}",
+          "name": "Missing config",
+          "description": "",
+          "engineVersion": {{ProfileTransfer.EngineVersion}}
+        }
+        """;
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(System.Text.Encoding.UTF8.GetBytes(missingConfig)));
+    }
+
+    [Fact]
+    public void FutureFormatAndIncompatibleEngineAreRejected()
+    {
+        var profile = new RandomProfile { Id = Guid.NewGuid(), Name = "Versioned", Config = CompleteConfig() };
+        string json = System.Text.Encoding.UTF8.GetString(ProfileTransfer.Serialize(profile));
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.Replace("\"formatVersion\": 1", "\"formatVersion\": 99", StringComparison.Ordinal))));
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.Replace("\"engineVersion\": 1", "\"engineVersion\": 99", StringComparison.Ordinal))));
+    }
+
+    [Fact]
+    public void InvalidConfigAndNonFiniteNumbersAreRejected()
+    {
+        var invalid = new RandomProfile { Id = Guid.NewGuid(), Name = "Invalid", Config = CompleteConfig() };
+        invalid.Config.MinThresholdMs = 100;
+        invalid.Config.BaseThresholdMs = 50;
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Serialize(invalid));
+
+        invalid.Config = CompleteConfig();
+        invalid.Config.Weights.JackPenalty = double.PositiveInfinity;
+        AssertFails<InvalidDataException>(() => ProfileTransfer.Serialize(invalid));
+    }
+
+    [Fact]
+    public void SameGuidCanUpdateOrImportAsIndependentCopy()
+    {
+        Guid id = Guid.NewGuid();
+        var profiles = new List<RandomProfile>
+        {
+            new() { Id = id, Name = "Existing", Description = "old", Config = new HRandomConfig { Seed = 1 } }
+        };
+        var incoming = new RandomProfile { Id = id, Name = "Updated", Description = "new", Config = new HRandomConfig { Seed = 2 } };
+        RandomProfile updated = ProfileTransfer.Import(profiles, incoming, ProfileImportDecision.Update)!;
+        Assert.Equal(1, profiles.Count);
+        Assert.Equal(id, updated.Id);
+        Assert.Equal(2L, updated.Config.Seed);
+
+        RandomProfile copy = ProfileTransfer.Import(profiles, incoming, ProfileImportDecision.ImportAsCopy)!;
+        Assert.Equal(2, profiles.Count);
+        Assert.True(copy.Id != id && copy.Id != Guid.Empty);
+    }
+
+    [Fact]
+    public void ImportResolvesDuplicateAndReservedNamesWithoutReplacingPresets()
+    {
+        var profiles = new List<RandomProfile>
+        {
+            new() { Id = Guid.NewGuid(), Name = "Shared", Config = new HRandomConfig() }
+        };
+        RandomProfile duplicate = ProfileTransfer.Import(profiles,
+            new RandomProfile { Id = Guid.NewGuid(), Name = "Shared", Config = new HRandomConfig() },
+            ProfileImportDecision.Update)!;
+        Assert.Equal("Shared (2)", duplicate.Name);
+
+        RandomProfile reserved = ProfileTransfer.Import(profiles,
+            new RandomProfile { Id = ProfileCatalog.HRandomId, Name = "H-Random", Config = new HRandomConfig() },
+            ProfileImportDecision.Update)!;
+        Assert.Equal("H-Random (Imported)", reserved.Name);
+        Assert.True(profiles.All(profile => !profile.BuiltIn));
+    }
+
+    [Fact]
+    public void CancelledImportLeavesProfilesAndGlobalSettingsUntouched()
+    {
+        var settings = new AppSettings
+        {
+            OsuPath = "private-osu-path",
+            TosuHost = "10.0.0.5",
+            TosuPort = 12345,
+            OutputToBeatmapFolder = false,
+            CustomProfiles = new List<RandomProfile>
+            {
+                new() { Id = Guid.NewGuid(), Name = "Existing", Config = new HRandomConfig() }
+            }
+        };
+        int before = settings.CustomProfiles.Count;
+        RandomProfile? result = ProfileTransfer.Import(settings.CustomProfiles,
+            new RandomProfile { Id = Guid.NewGuid(), Name = "Incoming", Config = new HRandomConfig() },
+            ProfileImportDecision.Cancel);
+        Assert.True(result is null);
+        Assert.Equal(before, settings.CustomProfiles.Count);
+        Assert.Equal("private-osu-path", settings.OsuPath);
+        Assert.Equal("10.0.0.5", settings.TosuHost);
+        Assert.Equal(12345, settings.TosuPort);
+        Assert.True(!settings.OutputToBeatmapFolder);
+    }
+
+    [Fact]
+    public void SettingsWritesAtomicallyWithoutLeavingTemporaryFiles()
+    {
+        string root = TemporaryDirectory("AtomicSettings");
+        try
+        {
+            var store = new SettingsStore(root);
+            store.Save(new AppSettings { CustomConfig = CompleteConfig() });
+            store.Save(new AppSettings { CustomConfig = new HRandomConfig { Seed = 77 } });
+            Assert.Equal(77L, store.Load().CustomConfig!.Seed);
+            Assert.Equal(0, Directory.GetFiles(root, "*.tmp").Length);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void PortableProfileFileRoundTripsThroughDisk()
+    {
+        string root = TemporaryDirectory("PortableProfile");
+        try
+        {
+            string path = Path.Combine(root, "跨平台.hrp-profile.json");
+            var expected = new RandomProfile { Id = Guid.NewGuid(), Name = "Windows ↔ Linux", Description = "UTF-8", Config = CompleteConfig() };
+            ProfileTransfer.Export(path, expected);
+            RandomProfile actual = ProfileTransfer.Read(path);
+            Assert.Equal(expected.Id, actual.Id);
+            Assert.Equal(expected.Name, actual.Name);
+            AssertConfigEqual(expected.Config, actual.Config);
+            Assert.Equal(0, Directory.GetFiles(root, "*.tmp").Length);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static HRandomConfig CompleteConfig() => new()
+    {
+        Seed = -123456789,
+        DynamicThreshold = false,
+        MinThresholdMs = 11,
+        BaseThresholdMs = 22,
+        MaxThresholdMs = 33,
+        RecentUsageWindow = 44,
+        PatternHistoryLength = 55,
+        WeightedTopCandidates = 7,
+        WeightedTemperature = 6.5,
+        MaxCandidateSets = 777,
+        RenameDifficulty = false,
+        DifficultySuffix = " ROUNDTRIP",
+        Weights = new ScoringWeights
+        {
+            TimeSinceLastUseBonus = 1,
+            HandBalanceBonus = 2,
+            DistributionBonus = 3,
+            JackPenalty = 4,
+            TrillPenalty = 5,
+            RepeatedPatternPenalty = 6,
+            SameHandPenalty = 7,
+            ExtremeJumpPenalty = 8,
+            RecentUsagePenalty = 9
+        }
+    };
+
+    private static void AssertConfigEqual(HRandomConfig expected, HRandomConfig actual)
+    {
+        Assert.Equal(expected.Seed, actual.Seed);
+        Assert.Equal(expected.DynamicThreshold, actual.DynamicThreshold);
+        Assert.Equal(expected.MinThresholdMs, actual.MinThresholdMs);
+        Assert.Equal(expected.BaseThresholdMs, actual.BaseThresholdMs);
+        Assert.Equal(expected.MaxThresholdMs, actual.MaxThresholdMs);
+        Assert.Equal(expected.RecentUsageWindow, actual.RecentUsageWindow);
+        Assert.Equal(expected.PatternHistoryLength, actual.PatternHistoryLength);
+        Assert.Equal(expected.WeightedTopCandidates, actual.WeightedTopCandidates);
+        Assert.Equal(expected.WeightedTemperature, actual.WeightedTemperature);
+        Assert.Equal(expected.MaxCandidateSets, actual.MaxCandidateSets);
+        Assert.Equal(expected.RenameDifficulty, actual.RenameDifficulty);
+        Assert.Equal(expected.DifficultySuffix, actual.DifficultySuffix);
+        Assert.Equal(expected.Weights.TimeSinceLastUseBonus, actual.Weights.TimeSinceLastUseBonus);
+        Assert.Equal(expected.Weights.HandBalanceBonus, actual.Weights.HandBalanceBonus);
+        Assert.Equal(expected.Weights.DistributionBonus, actual.Weights.DistributionBonus);
+        Assert.Equal(expected.Weights.JackPenalty, actual.Weights.JackPenalty);
+        Assert.Equal(expected.Weights.TrillPenalty, actual.Weights.TrillPenalty);
+        Assert.Equal(expected.Weights.RepeatedPatternPenalty, actual.Weights.RepeatedPatternPenalty);
+        Assert.Equal(expected.Weights.SameHandPenalty, actual.Weights.SameHandPenalty);
+        Assert.Equal(expected.Weights.ExtremeJumpPenalty, actual.Weights.ExtremeJumpPenalty);
+        Assert.Equal(expected.Weights.RecentUsagePenalty, actual.Weights.RecentUsagePenalty);
+    }
+
+    private static void AssertFails<TException>(Action action) where TException : Exception
+    {
+        try { action(); }
+        catch (TException) { return; }
+        catch (Exception ex) { throw new Xunit.TestException($"Expected {typeof(TException).Name}, received {ex.GetType().Name}."); }
+        throw new Xunit.TestException($"Expected {typeof(TException).Name}.");
+    }
+
+    private static string TemporaryDirectory(string name)
+        => Path.Combine(Path.GetTempPath(), "HRandomPlusTests", name, Guid.NewGuid().ToString("N"));
+
     private static AppSettings RoundTripSettings(RandomProfile profile)
     {
         string root = Path.Combine(Path.GetTempPath(), "HRandomPlusProfile", Guid.NewGuid().ToString("N"));

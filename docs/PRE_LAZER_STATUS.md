@@ -16,6 +16,8 @@ HRandomPlus continúa dirigido exclusivamente a osu!stable. No se implementó so
 - **AUTOMATED VERIFIED:** el origen de selección ahora distingue detección automática por tosu de selección manual, incluso al desconectar y reconectar con el mismo mapa.
 - **AUTOMATED VERIFIED:** una selección manual conserva prioridad mientras tosu siga informando el mismo mapa; al cambiar de mapa en osu!, la detección automática recupera el control.
 - **VERIFIED:** el build Linux `r2` muestra correctamente el origen automático, respeta una selección manual ante el mismo mapa de tosu y recupera el modo automático al cambiar de mapa en osu!.
+- **AUTOMATED VERIFIED LOCALLY:** el formateador ya no atribuye toda detección automática a tosu. Windows muestra `Beatmap detected automatically from osu!stable`, Linux conserva `Beatmap detected automatically by tosu` y la selección manual mantiene su texto propio. La detección real nunca estuvo rota; era un defecto exclusivamente visual.
+- **VERIFIED ON WINDOWS AND LINUX:** H-Random/S-Random permanecen protegidos; Custom es único, persistente y reseteable; perfiles personales tienen GUID, migración idempotente e import/export `.hrp-profile.json` validado. El playtest final de esta UI terminó sin bugs reportados y con los estados correctos en Windows y la VM Linux.
 
 ## Invariantes conservadas
 
@@ -29,8 +31,13 @@ HRandomPlus continúa dirigido exclusivamente a osu!stable. No se implementó so
 ## Evidencia final de cierre stable
 
 - **VERIFIED:** smoke test del ejecutable Windows x64 final; abrió y cerró correctamente.
-- **VERIFIED:** 77/77 pruebas y build Release con 0 errores.
+- **VERIFIED REMOTELY:** `main` alcanzó `de92500` y GitHub Actions completó correctamente tests y artefactos Windows/Linux para ese commit.
+- **VERIFIED LOCALLY AFTER PROFILE SYSTEM:** 100/100 pruebas del runner propio, build Release con 0 errores y smoke start aislado del ejecutable Windows aprobado.
 - **VERIFIED:** `git diff --check` sin errores de whitespace (solo avisos LF/CRLF).
-- **VERIFIED:** ZIP Windows x64 y Linux x64 contienen únicamente el ejecutable, runtime nativo necesario, README, LICENSE y configuración de ejemplo.
+- **VERIFIED:** ZIP Windows x64 y Linux x64 contienen únicamente el ejecutable, runtime nativo necesario, README, LICENSE, configuración de ejemplo y los avisos/textos de licencias aplicables.
 - **READY LOCALLY:** cierre pre-lazer probado, auditado y empaquetado.
-- **PENDING OWNER ACTION:** push del historial anonimizado; tag/release solo si el propietario decide publicarlos.
+- **COMPLETED:** el historial con atribución corregida fue subido; ya no hay un push de anonimización pendiente.
+- **PENDING OWNER ACTION:** revisar y hacer commit/push de esta preparación y decidir la visibilidad final.
+- **LICENSE READY:** HRandomPlus y los componentes enlazados de memoria se distribuyen bajo `GPL-3.0-or-later`; los binarios se acompañan de las fuentes exactas, snapshot upstream, notices y checksums.
+- **PENDING:** tag y Release formal `v0.1.0-playtest` después de superar todos los gates.
+- **OUT OF SCOPE:** osu!lazer continúa sin fuente, importador ni acceso a su almacenamiento.

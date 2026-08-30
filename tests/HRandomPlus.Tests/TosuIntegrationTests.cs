@@ -159,7 +159,11 @@ public class TosuIntegrationTests
     public void FormatterDistinguishesRealManualSelectionFromAutomaticTosuSelection()
     {
         var automaticTracker = new DetectionStateTracker();
-        BeatmapDetectionUpdate automatic = automaticTracker.Observe(Found("A", "configured native osu! path"));
+        BeatmapSourceResult automaticResult = BeatmapSourceResult.Found(
+            Found("A", "ignored").Selection!,
+            "configured native osu! path",
+            detectionSource: BeatmapDetectionSource.Tosu);
+        BeatmapDetectionUpdate automatic = automaticTracker.Observe(automaticResult);
         Assert.Contains("detected automatically by tosu", BeatmapStatusFormatter.Format(automatic, false));
 
         var manualTracker = new DetectionStateTracker();
@@ -169,6 +173,21 @@ public class TosuIntegrationTests
             BeatmapSelectionOrigin.Manual);
         BeatmapDetectionUpdate manual = manualTracker.Observe(manualResult);
         Assert.Equal("Manual beatmap selected", BeatmapStatusFormatter.Format(manual, false));
+    }
+
+    [Fact]
+    public void FormatterIdentifiesWindowsMemoryWithoutMentioningTosu()
+    {
+        var tracker = new DetectionStateTracker();
+        BeatmapSourceResult result = BeatmapSourceResult.Found(
+            Found("A", "ignored").Selection!,
+            "",
+            detectionSource: BeatmapDetectionSource.WindowsMemory);
+
+        string status = BeatmapStatusFormatter.Format(tracker.Observe(result), false);
+
+        Assert.Equal("Beatmap detected automatically from osu!stable", status);
+        Assert.True(!status.Contains("tosu", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -374,7 +393,10 @@ public class TosuIntegrationTests
     {
         var info = new BeatmapInfo(1, 2, identity, "Artist", "Title", "Mapper", "Difficulty",
             "Folder", identity + ".osu", null);
-        return BeatmapSourceResult.Found(new BeatmapSelection(info, Path.GetFullPath(identity + ".osu")), status);
+        return BeatmapSourceResult.Found(
+            new BeatmapSelection(info, Path.GetFullPath(identity + ".osu")),
+            status,
+            detectionSource: BeatmapDetectionSource.Tosu);
     }
 
     private static HttpResponseMessage JsonResponse(string json)

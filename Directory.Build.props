@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
     <Version>0.1.0-playtest</Version>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 HRandomPlus contributors</Copyright>
   </PropertyGroup>
 </Project>

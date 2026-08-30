@@ -6,11 +6,13 @@ Versión actual: **v0.1.0-playtest**. Está dirigida a osu!stable. **osu!lazer t
 
 ## Funciones
 
-- Perfiles H-Random, S-Random, Custom y perfiles personalizados.
+- Presets protegidos H-Random/S-Random, Custom persistente y perfiles personales con identidad propia.
+- Importación y exportación segura de perfiles `.hrp-profile.json` entre Windows y Linux.
 - Seeds reproducibles, guardadas también en perfiles personalizados, y rangos parciales.
 - Protección de long notes y validación antes de escribir.
 - Detección de osu!stable en Windows aunque osu!lazer esté abierto.
 - Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
+- Estado de origen inequívoco: Windows indica osu!stable, Linux indica tosu y la selección manual permanece diferenciada.
 - Selector manual `.osu` en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
 - Referencia visual editable de BPM a milisegundos para snaps de 1/1 a 1/64.
@@ -79,6 +81,16 @@ Windows conserva `%LOCALAPPDATA%\HRandomPlus`. Linux sigue XDG:
 
 Una configuración corrupta restaura defaults y no impide iniciar la aplicación.
 
+## Perfiles
+
+- **H-Random** y **S-Random** son presets protegidos: siempre se reconstruyen desde los valores del código y no pueden sobrescribirse ni eliminarse.
+- **Custom** es un único perfil editable. **Save Custom** conserva todos sus parámetros y la seed en la configuración personal; **Reset Custom** restaura sus valores iniciales después de pedir confirmación.
+- **Duplicate** crea una variante personal independiente con GUID nuevo. Solo los perfiles personales pueden eliminarse.
+- **Export profile** genera un archivo UTF-8 `.hrp-profile.json` con el nombre, descripción, GUID, versiones de formato/motor y todos los parámetros del randomizer.
+- **Import profile** valida el archivo y muestra una previsualización. Si el GUID ya existe permite actualizarlo o importar una copia; los nombres repetidos reciben un sufijo y `H-Random`, `S-Random` y `Custom` están reservados.
+
+Los perfiles exportados nunca incluyen rutas de osu!, tosu, preferencias de output, logs ni información del mapa actual. Los perfiles importados se copian al `config.json` personal, por lo que el archivo descargado puede eliminarse después. Las configuraciones de versiones anteriores se migran automáticamente: el último perfil histórico llamado Custom se convierte en el Custom persistente y los demás se conservan con nombres únicos.
+
 ## Arquitectura
 
 ```text
@@ -93,7 +105,7 @@ La UI y las fuentes no contienen lógica de random. El motor no conoce el sistem
 
 ## Compilación
 
-Requiere .NET 8 SDK.
+Los binarios apuntan a `net8.0`/`net8.0-windows`. El workflow oficial usa el SDK .NET 10 estable para compilar esos targets y mantener compatibilidad con los analizadores actuales de Avalonia. El SDK .NET 8 también puede compilar el proyecto, aunque puede mostrar advertencias `CS9057` por la versión de Roslyn.
 
 ```bash
 dotnet restore HRandomPlus.sln
@@ -135,4 +147,8 @@ Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PL
 
 ## Licencias
 
-HRandomPlus es MIT. `OsuMemoryDataProvider 0.12.2` se usa únicamente en builds Windows; revisa sus términos GPL-3.0-or-later al redistribuirlos. Linux consume la API HTTP de tosu y no copia código de tosu, cosutrainer ni osumem.
+HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
+
+La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria.
+
+Los artefactos de GitHub Actions son temporales. Los ZIP y `SHA256SUMS.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag.

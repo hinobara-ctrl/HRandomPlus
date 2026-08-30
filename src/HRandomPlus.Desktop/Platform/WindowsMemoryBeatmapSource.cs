@@ -46,7 +46,10 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource
             string path = Path.Combine(root, "Songs", folder.TrimEnd(), file);
             if (!File.Exists(path)) return BeatmapSourceResult.Waiting("Detected beatmap file does not exist");
             var info = new BeatmapInfo(beatmap.Id, beatmap.SetId, beatmap.Md5, "", "", "", "", folder, file, path);
-            return BeatmapSourceResult.Found(new BeatmapSelection(info, path));
+            return BeatmapSourceResult.Found(
+                new BeatmapSelection(info, path),
+                string.Empty,
+                detectionSource: BeatmapDetectionSource.WindowsMemory);
         }
         catch (Exception ex) { return BeatmapSourceResult.Unavailable($"Memory detection unavailable: {ex.Message}"); }
     }

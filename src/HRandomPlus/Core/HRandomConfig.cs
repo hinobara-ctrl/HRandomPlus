@@ -44,8 +44,26 @@ public sealed class HRandomConfig
             throw new ArgumentException("PatternHistoryLength debe estar entre 4 y 256.");
         if (WeightedTopCandidates < 1 || MaxCandidateSets < WeightedTopCandidates)
             throw new ArgumentException("La cantidad de candidatos ponderados no es válida.");
-        if (WeightedTemperature <= 0 || double.IsNaN(WeightedTemperature))
+        if (WeightedTemperature <= 0 || !double.IsFinite(WeightedTemperature))
             throw new ArgumentException("WeightedTemperature debe ser mayor que cero.");
+        if (Weights is null)
+            throw new ArgumentException("Weights no puede ser null.");
+        double[] weights =
+        {
+            Weights.TimeSinceLastUseBonus,
+            Weights.HandBalanceBonus,
+            Weights.DistributionBonus,
+            Weights.JackPenalty,
+            Weights.TrillPenalty,
+            Weights.RepeatedPatternPenalty,
+            Weights.SameHandPenalty,
+            Weights.ExtremeJumpPenalty,
+            Weights.RecentUsagePenalty
+        };
+        if (weights.Any(weight => !double.IsFinite(weight)))
+            throw new ArgumentException("Los pesos de scoring deben ser números finitos.");
+        if (DifficultySuffix is null)
+            throw new ArgumentException("DifficultySuffix no puede ser null.");
         if (DifficultySuffix.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             throw new ArgumentException("DifficultySuffix contiene caracteres no válidos para nombres de archivo.");
     }

@@ -43,6 +43,9 @@ public sealed class MainWindow : Window
     private readonly TextBox tosuHost = new();
     private readonly TextBox tosuPort = new();
     private readonly Button randomizeButton = new() { Content = "RANDOMIZE CURRENT MAP", IsEnabled = false, Height = 46 };
+    private readonly Button saveProfileButton = new() { Content = "Save profile" };
+    private readonly Button deleteProfileButton = new() { Content = "Delete profile" };
+    private readonly Button resetCustomButton = new() { Content = "Reset Custom" };
 
     private HRandomConfig activeConfig = new();
     private string? currentPath;
@@ -52,7 +55,7 @@ public sealed class MainWindow : Window
     {
         settings = store.Load();
         source = PlatformSourceFactory.Create(settings);
-        profiles.AddRange(ProfileCatalog.BuiltIns);
+        profiles.AddRange(ProfileCatalog.CreateBuiltIns(settings.CustomConfig, settings.CustomProfileId));
         profiles.AddRange(settings.CustomProfiles);
         Title = "HRandomPlus";
         Width = 1120;
@@ -104,10 +107,17 @@ public sealed class MainWindow : Window
         profileBox.SelectionChanged += (_, _) => LoadSelectedProfile();
         left.Children.Add(profileBox);
         var profileButtons = Row();
-        profileButtons.Children.Add(Button("Save profile", () => SaveProfileAsync(false)));
-        profileButtons.Children.Add(Button("Duplicate", () => SaveProfileAsync(true)));
-        profileButtons.Children.Add(Button("Delete custom", DeleteProfile));
+        saveProfileButton.Click += (_, _) => SaveProfile();
+        deleteProfileButton.Click += (_, _) => DeleteProfile();
+        resetCustomButton.Click += async (_, _) => await ResetCustomAsync();
+        profileButtons.Children.Add(saveProfileButton);
+        profileButtons.Children.Add(Button("Duplicate", DuplicateProfileAsync));
+        profileButtons.Children.Add(deleteProfileButton);
+        profileButtons.Children.Add(resetCustomButton);
         left.Children.Add(profileButtons);
+        left.Children.Add(Row(
+            Button("Import profile", ImportProfileAsync),
+            Button("Export profile", ExportProfileAsync)));
 
         left.Children.Add(Section("RANGE"));
         wholeMap.IsCheckedChanged += (_, _) => UpdateRangeState();
@@ -374,49 +384,233 @@ public sealed class MainWindow : Window
         activeConfig = profiles[profileBox.SelectedIndex].Config.Clone();
         LoadConfig(activeConfig);
         settings.LastProfile = profiles[profileBox.SelectedIndex].Name;
+        UpdateProfileActions(profiles[profileBox.SelectedIndex]);
         SaveSettings();
     }
 
-    private async Task SaveProfileAsync(bool duplicate)
+    private void SaveProfile()
     {
+        RandomProfile? selected = SelectedProfile();
+        if (selected is null) return;
         try { activeConfig = ReadConfig(); }
         catch (Exception ex) { ShowError(ex); return; }
-        string initial = duplicate ? $"{profileBox.SelectedItem} Copy" : "My Profile";
-        string? name = await PromptNameAsync(initial);
-        if (string.IsNullOrWhiteSpace(name)) return;
-        RandomProfile? profile = profiles.FirstOrDefault(p => !p.BuiltIn && p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        if (profile is null)
+
+        if (selected.BuiltIn && selected.Name.Equals(ProfileCatalog.CustomName, StringComparison.OrdinalIgnoreCase))
         {
-            profile = new RandomProfile { Name = name.Trim(), BuiltIn = false };
-            profiles.Add(profile);
+            ProfileOperations.Save(selected, settings, activeConfig);
+            SaveSettings();
+            SetStatus("Custom profile saved");
+            return;
         }
-        profile.Config = activeConfig.Clone();
-        settings.CustomProfiles = profiles.Where(p => !p.BuiltIn).ToList();
+
+        if (selected.BuiltIn)
+        {
+            SetStatus("H-Random and S-Random are protected. Use Duplicate to create a variant.");
+            return;
+        }
+
+        ProfileOperations.Save(selected, settings, activeConfig);
+        SyncPersonalProfiles();
         SaveSettings();
-        ReloadProfiles(profile.Name);
+        SetStatus($"Profile saved: {selected.Name}");
+    }
+
+    private async Task DuplicateProfileAsync()
+    {
+        RandomProfile? selected = SelectedProfile();
+        if (selected is null) return;
+        HRandomConfig config;
+        try { config = ReadConfig(); }
+        catch (Exception ex) { ShowError(ex); return; }
+
+        ProfileDetails? details = await PromptProfileDetailsAsync($"{selected.Name} Copy", selected.Description);
+        if (details is null) return;
+        try
+        {
+            RandomProfile duplicate = ProfileOperations.Duplicate(
+                selected,
+                config,
+                details.Name,
+                details.Description,
+                profiles.Select(profile => profile.Name));
+            profiles.Add(duplicate);
+            SyncPersonalProfiles();
+            SaveSettings();
+            ReloadProfiles(duplicate.Name);
+            SetStatus($"Profile created: {duplicate.Name}");
+        }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     private void DeleteProfile()
     {
-        if (profileBox.SelectedIndex < 0 || profiles[profileBox.SelectedIndex].BuiltIn) return;
-        profiles.RemoveAt(profileBox.SelectedIndex);
-        settings.CustomProfiles = profiles.Where(p => !p.BuiltIn).ToList();
+        RandomProfile? selected = SelectedProfile();
+        if (selected is null || selected.BuiltIn) return;
+        profiles.Remove(selected);
+        SyncPersonalProfiles();
         SaveSettings();
-        ReloadProfiles("H-Random");
+        ReloadProfiles(ProfileCatalog.HRandomName);
+        SetStatus($"Profile deleted: {selected.Name}");
     }
 
-    private async Task<string?> PromptNameAsync(string initial)
+    private async Task ResetCustomAsync()
     {
-        var input = new TextBox { Text = initial, Margin = new Thickness(0, 8) };
-        var dialog = new Window { Title = "Profile name", Width = 420, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var save = new Button { Content = "Save", HorizontalAlignment = HorizontalAlignment.Right };
+        RandomProfile? selected = SelectedProfile();
+        if (selected is null || !selected.BuiltIn || !selected.Name.Equals(ProfileCatalog.CustomName, StringComparison.OrdinalIgnoreCase)) return;
+        if (!await ConfirmAsync("Reset Custom", "Restore the default Custom parameters? This cannot be undone.", "Reset")) return;
+        ProfileOperations.ResetCustom(selected, settings);
+        activeConfig = selected.Config.Clone();
+        LoadConfig(activeConfig);
+        SaveSettings();
+        SetStatus("Custom profile reset");
+    }
+
+    private async Task ImportProfileAsync()
+    {
+        try
+        {
+            IStorageFolder? startFolder = await StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Downloads);
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Import HRandomPlus profile",
+                AllowMultiple = false,
+                SuggestedStartLocation = startFolder,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("HRandomPlus profile") { Patterns = new[] { "*.hrp-profile.json" } }
+                }
+            });
+            string? path = files.FirstOrDefault()?.TryGetLocalPath();
+            if (path is null) return;
+
+            RandomProfile incoming = ProfileTransfer.Read(path);
+            RandomProfile? existing = settings.CustomProfiles.FirstOrDefault(profile => profile.Id == incoming.Id);
+            ProfileImportDecision decision = await PromptImportAsync(incoming, existing is not null);
+            if (decision == ProfileImportDecision.Cancel) return;
+
+            RandomProfile? imported = ProfileTransfer.Import(settings.CustomProfiles, incoming, decision);
+            if (imported is null) return;
+            RebuildProfiles(imported.Name);
+            SaveSettings();
+            SetStatus(existing is not null && decision == ProfileImportDecision.Update
+                ? $"Profile updated: {imported.Name}"
+                : $"Profile imported: {imported.Name}");
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
+
+    private async Task ExportProfileAsync()
+    {
+        RandomProfile? selected = SelectedProfile();
+        if (selected is null) return;
+        try
+        {
+            var exportProfile = selected.Clone();
+            IStorageFolder? startFolder = await StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Downloads);
+            IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export HRandomPlus profile",
+                SuggestedStartLocation = startFolder,
+                SuggestedFileName = ProfileTransfer.SuggestedFileName(exportProfile),
+                DefaultExtension = "json",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("HRandomPlus profile") { Patterns = new[] { "*.hrp-profile.json" } }
+                }
+            });
+            string? path = file?.TryGetLocalPath();
+            if (path is null) return;
+            ProfileTransfer.Export(path, exportProfile);
+            SetStatus($"Profile exported: {path}");
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
+
+    private async Task<ProfileDetails?> PromptProfileDetailsAsync(string initialName, string initialDescription)
+    {
+        var name = new TextBox { Text = initialName };
+        var description = new TextBox { Text = initialDescription, AcceptsReturn = true, Height = 70, TextWrapping = TextWrapping.Wrap };
+        var dialog = new Window { Title = "Profile details", Width = 460, Height = 280, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var save = new Button { Content = "Create" };
+        var cancel = new Button { Content = "Cancel" };
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 8 };
         panel.Children.Add(Text("Profile name"));
-        panel.Children.Add(input);
-        panel.Children.Add(save);
+        panel.Children.Add(name);
+        panel.Children.Add(Text("Description (optional)"));
+        panel.Children.Add(description);
+        panel.Children.Add(Row(cancel, save));
         dialog.Content = panel;
-        save.Click += (_, _) => dialog.Close(input.Text);
-        return await dialog.ShowDialog<string?>(this);
+        save.Click += (_, _) => dialog.Close(new ProfileDetails(name.Text ?? string.Empty, description.Text ?? string.Empty));
+        cancel.Click += (_, _) => dialog.Close((ProfileDetails?)null);
+        return await dialog.ShowDialog<ProfileDetails?>(this);
+    }
+
+    private async Task<ProfileImportDecision> PromptImportAsync(RandomProfile profile, bool hasIdConflict)
+    {
+        var dialog = new Window { Title = "Import profile", Width = 600, Height = 430, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var panel = new StackPanel { Margin = new Thickness(18), Spacing = 8 };
+        panel.Children.Add(Text(profile.Name, 20, FontWeight.SemiBold));
+        if (!string.IsNullOrWhiteSpace(profile.Description)) panel.Children.Add(Text(profile.Description));
+        panel.Children.Add(Text($"Format: {ProfileTransfer.FormatVersion}  ·  Engine: {ProfileTransfer.EngineVersion}"));
+        panel.Children.Add(Text($"Thresholds: {profile.Config.MinThresholdMs} / {profile.Config.BaseThresholdMs} / {profile.Config.MaxThresholdMs} ms"));
+        panel.Children.Add(Text($"Seed: {(profile.Config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "Random")}"));
+        ScoringWeights weights = profile.Config.Weights;
+        panel.Children.Add(Text($"Weights: jack {weights.JackPenalty}, trill {weights.TrillPenalty}, repeated {weights.RepeatedPatternPenalty}, recent {weights.RecentUsagePenalty}"));
+        if (hasIdConflict) panel.Children.Add(Text("A personal profile with the same ID already exists."));
+
+        var cancel = new Button { Content = "Cancel" };
+        var copy = new Button { Content = hasIdConflict ? "Import as copy" : "Import" };
+        var buttons = Row(cancel, copy);
+        if (hasIdConflict)
+        {
+            var update = new Button { Content = "Update existing" };
+            update.Click += (_, _) => dialog.Close(ProfileImportDecision.Update);
+            buttons.Children.Add(update);
+        }
+        panel.Children.Add(buttons);
+        dialog.Content = panel;
+        cancel.Click += (_, _) => dialog.Close(ProfileImportDecision.Cancel);
+        copy.Click += (_, _) => dialog.Close(hasIdConflict ? ProfileImportDecision.ImportAsCopy : ProfileImportDecision.Update);
+        return await dialog.ShowDialog<ProfileImportDecision>(this);
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, string acceptText)
+    {
+        var dialog = new Window { Title = title, Width = 440, Height = 180, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var accept = new Button { Content = acceptText };
+        var cancel = new Button { Content = "Cancel" };
+        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
+        panel.Children.Add(Text(message));
+        panel.Children.Add(Row(cancel, accept));
+        dialog.Content = panel;
+        accept.Click += (_, _) => dialog.Close(true);
+        cancel.Click += (_, _) => dialog.Close(false);
+        return await dialog.ShowDialog<bool>(this);
+    }
+
+    private RandomProfile? SelectedProfile()
+        => profileBox.SelectedIndex >= 0 && profileBox.SelectedIndex < profiles.Count
+            ? profiles[profileBox.SelectedIndex]
+            : null;
+
+    private void UpdateProfileActions(RandomProfile profile)
+    {
+        bool custom = profile.BuiltIn && profile.Name.Equals(ProfileCatalog.CustomName, StringComparison.OrdinalIgnoreCase);
+        saveProfileButton.Content = custom ? "Save Custom" : "Save profile";
+        saveProfileButton.IsEnabled = custom || !profile.BuiltIn;
+        deleteProfileButton.IsEnabled = !profile.BuiltIn;
+        resetCustomButton.IsEnabled = custom;
+    }
+
+    private void SyncPersonalProfiles()
+        => settings.CustomProfiles = profiles.Where(profile => !profile.BuiltIn).ToList();
+
+    private void RebuildProfiles(string? selected)
+    {
+        profiles.Clear();
+        profiles.AddRange(ProfileCatalog.CreateBuiltIns(settings.CustomConfig, settings.CustomProfileId));
+        profiles.AddRange(settings.CustomProfiles);
+        ReloadProfiles(selected);
     }
 
     private void ApplyPlatformSettings()
@@ -586,4 +780,6 @@ public sealed class MainWindow : Window
         button.Click += async (_, _) => await action();
         return button;
     }
+
+    private sealed record ProfileDetails(string Name, string Description);
 }

@@ -25,19 +25,27 @@ public enum BeatmapSelectionOrigin
     Manual
 }
 
+public enum BeatmapDetectionSource
+{
+    WindowsMemory,
+    Tosu
+}
+
 public sealed record BeatmapSourceResult(
     BeatmapSelection? Selection,
     string Status,
     bool IsAvailable,
-    BeatmapSelectionOrigin? SelectionOrigin = null)
+    BeatmapSelectionOrigin? SelectionOrigin = null,
+    BeatmapDetectionSource? DetectionSource = null)
 {
     public bool Success => Selection is not null;
 
     public static BeatmapSourceResult Found(
         BeatmapSelection selection,
         string status = "Beatmap detected",
-        BeatmapSelectionOrigin origin = BeatmapSelectionOrigin.Automatic)
-        => new(selection, status, true, origin);
+        BeatmapSelectionOrigin origin = BeatmapSelectionOrigin.Automatic,
+        BeatmapDetectionSource? detectionSource = null)
+        => new(selection, status, true, origin, detectionSource);
 
     public static BeatmapSourceResult Unavailable(string status)
         => new(null, status, false);

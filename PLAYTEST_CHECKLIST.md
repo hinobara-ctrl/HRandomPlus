@@ -3,9 +3,13 @@
 ## Windows + osu!stable
 
 - [x] Abrir stable y detectar el mapa seleccionado.
+- [x] Regresión automatizada: la detección por memoria muestra **Beatmap detected automatically from osu!stable** y no menciona tosu.
 - [x] Cambiar de dificultad y confirmar que HRandomPlus cambia de mapa.
 - [x] Probar H-Random, S-Random y un perfil Custom.
 - [x] Guardar/cargar un perfil con seed y otro con seed vacía.
+- [x] Guardar Custom dos veces, reiniciar y confirmar que existe un único Custom con los últimos valores.
+- [x] Duplicar H-Random, S-Random y Custom; confirmar GUID/config independiente y eliminación solo de las copias.
+- [x] Exportar/importar un `.hrp-profile.json`, revisar preview y probar Update, Import as copy, nombre repetido y nombre reservado.
 - [x] Probar Whole map y Selected range.
 - [x] Randomize crea una dificultad nueva y el original queda intacto.
 - [x] Probar **Select .osu manually**.
@@ -18,6 +22,7 @@
 - [x] Abrir tosu nuevamente sin cambiar el mapa: la UI debe volver a conectado.
 - [x] Cerrar/reabrir osu! y confirmar que el estado vuelve a actualizarse.
 - [x] Probar H-Random, S-Random, seed y fallback manual.
+- [x] Importar en Linux un perfil exportado en Windows y exportarlo nuevamente sin perder parámetros, Unicode ni seed.
 - [x] Generar S-Random tres veces sobre el mismo mapa sin cambiar selección: Version y filename deben ser únicos.
 - [x] Repetir el caso con H-Random y Custom.
 - [x] Con output junto al mapa, confirmar que Wine-side aparece sin F5.

@@ -26,7 +26,10 @@ public sealed class TosuBeatmapSource : IBeatmapSource, IDisposable
         PathResolution path = resolver.Resolve(result.Snapshot.Beatmap, configuredOsuRoot());
         if (!path.Success)
             return BeatmapSourceResult.Waiting(path.Status);
-        return BeatmapSourceResult.Found(new BeatmapSelection(result.Snapshot.Beatmap, path.Path!), path.Status);
+        return BeatmapSourceResult.Found(
+            new BeatmapSelection(result.Snapshot.Beatmap, path.Path!),
+            path.Status,
+            detectionSource: BeatmapDetectionSource.Tosu);
     }
 
     public void Dispose() => client.Dispose();

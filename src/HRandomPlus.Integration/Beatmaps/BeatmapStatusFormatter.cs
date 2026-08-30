@@ -6,9 +6,15 @@ public static class BeatmapStatusFormatter
     {
         if (update.Result.Selection is not null)
         {
-            string source = update.EffectiveOrigin == BeatmapSelectionOrigin.Manual
-                ? "Manual beatmap selected"
-                : "Beatmap detected automatically by tosu";
+            string source = update.EffectiveOrigin switch
+            {
+                BeatmapSelectionOrigin.Manual => "Manual beatmap selected",
+                _ when update.Result.DetectionSource == BeatmapDetectionSource.WindowsMemory
+                    => "Beatmap detected automatically from osu!stable",
+                _ when update.Result.DetectionSource == BeatmapDetectionSource.Tosu
+                    => "Beatmap detected automatically by tosu",
+                _ => "Beatmap detected automatically"
+            };
             return AppendDetail(source, update.Result.Status);
         }
 
