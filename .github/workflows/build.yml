@@ -34,11 +34,32 @@ jobs:
           New-Item -ItemType Directory artifacts/windows-x64/licenses | Out-Null
           Copy-Item licenses/GPL-3.0-or-later.txt, licenses/Avalonia-LICENSE.md, licenses/Avalonia-NOTICE.md, licenses/ANGLE-LICENSE.txt, licenses/SkiaSharp-HarfBuzzSharp-LICENSE.txt, licenses/SkiaSharp-HarfBuzzSharp-THIRD-PARTY-NOTICES.txt, licenses/MicroCom-LICENSE.txt, licenses/MIT-SPDX.txt, licenses/System.IO.Pipelines-LICENSE.txt, licenses/System.IO.Pipelines-THIRD-PARTY-NOTICES.txt, licenses/DOTNET-RUNTIME-WINDOWS-LICENSE.txt, licenses/DOTNET-RUNTIME-WINDOWS-THIRD-PARTY-NOTICES.txt artifacts/windows-x64/licenses/
           Get-ChildItem artifacts/windows-x64 -Recurse -Filter *.pdb | Remove-Item
-          Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/HRandomPlus-windows-x64.zip
+          Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/HRandomPlus-v0.1.1-playtest-windows-x64.zip
       - uses: actions/upload-artifact@v7
         with:
           name: HRandomPlus-windows-x64
-          path: artifacts/HRandomPlus-windows-x64.zip
+          path: artifacts/HRandomPlus-v0.1.1-playtest-windows-x64.zip
+
+  windows-framework-dependent-artifact:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -r win-x64
+      - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0-windows -r win-x64 --self-contained false -p:PublishSingleFile=true -o artifacts/windows-x64-framework-dependent --no-restore
+      - shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md, config.example.json artifacts/windows-x64-framework-dependent/
+          New-Item -ItemType Directory artifacts/windows-x64-framework-dependent/licenses | Out-Null
+          Copy-Item licenses/GPL-3.0-or-later.txt, licenses/Avalonia-LICENSE.md, licenses/Avalonia-NOTICE.md, licenses/ANGLE-LICENSE.txt, licenses/SkiaSharp-HarfBuzzSharp-LICENSE.txt, licenses/SkiaSharp-HarfBuzzSharp-THIRD-PARTY-NOTICES.txt, licenses/MicroCom-LICENSE.txt, licenses/MIT-SPDX.txt, licenses/System.IO.Pipelines-LICENSE.txt, licenses/System.IO.Pipelines-THIRD-PARTY-NOTICES.txt artifacts/windows-x64-framework-dependent/licenses/
+          Get-ChildItem artifacts/windows-x64-framework-dependent -Recurse -Filter *.pdb | Remove-Item
+          Compress-Archive -Path artifacts/windows-x64-framework-dependent/* -DestinationPath artifacts/HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: HRandomPlus-windows-x64-framework-dependent
+          path: artifacts/HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip
 
   linux-artifact:
     runs-on: ubuntu-latest
@@ -51,11 +72,28 @@ jobs:
       - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0 -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/linux-x64 --no-restore
       - run: cp README.md LICENSE THIRD_PARTY_NOTICES.md config.example.json artifacts/linux-x64/
       - run: mkdir artifacts/linux-x64/licenses && cp licenses/Avalonia-LICENSE.md licenses/Avalonia-NOTICE.md licenses/SkiaSharp-HarfBuzzSharp-LICENSE.txt licenses/SkiaSharp-HarfBuzzSharp-THIRD-PARTY-NOTICES.txt licenses/MicroCom-LICENSE.txt licenses/MIT-SPDX.txt licenses/System.IO.Pipelines-LICENSE.txt licenses/System.IO.Pipelines-THIRD-PARTY-NOTICES.txt licenses/DOTNET-RUNTIME-LINUX-LICENSE.txt licenses/DOTNET-RUNTIME-LINUX-THIRD-PARTY-NOTICES.txt artifacts/linux-x64/licenses/
-      - run: cd artifacts/linux-x64 && zip -r ../HRandomPlus-linux-x64.zip . -x '*.pdb'
+      - run: cd artifacts/linux-x64 && zip -r ../HRandomPlus-v0.1.1-playtest-linux-x64.zip . -x '*.pdb'
       - uses: actions/upload-artifact@v7
         with:
           name: HRandomPlus-linux-x64
-          path: artifacts/HRandomPlus-linux-x64.zip
+          path: artifacts/HRandomPlus-v0.1.1-playtest-linux-x64.zip
+
+  linux-framework-dependent-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -r linux-x64
+      - run: dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj -c Release -f net8.0 -r linux-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/linux-x64-framework-dependent --no-restore
+      - run: cp README.md LICENSE THIRD_PARTY_NOTICES.md config.example.json artifacts/linux-x64-framework-dependent/
+      - run: mkdir artifacts/linux-x64-framework-dependent/licenses && cp licenses/Avalonia-LICENSE.md licenses/Avalonia-NOTICE.md licenses/SkiaSharp-HarfBuzzSharp-LICENSE.txt licenses/SkiaSharp-HarfBuzzSharp-THIRD-PARTY-NOTICES.txt licenses/MicroCom-LICENSE.txt licenses/MIT-SPDX.txt licenses/System.IO.Pipelines-LICENSE.txt licenses/System.IO.Pipelines-THIRD-PARTY-NOTICES.txt artifacts/linux-x64-framework-dependent/licenses/
+      - run: cd artifacts/linux-x64-framework-dependent && zip -r ../HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip . -x '*.pdb'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: HRandomPlus-linux-x64-framework-dependent
+          path: artifacts/HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip
 
   source-artifacts:
     runs-on: windows-latest
@@ -64,7 +102,7 @@ jobs:
       - shell: pwsh
         run: |
           New-Item -ItemType Directory artifacts | Out-Null
-          git archive --format=zip --prefix=HRandomPlus-v0.1.0-playtest/ -o artifacts/HRandomPlus-v0.1.0-playtest-source.zip HEAD
+          git archive --format=zip --prefix=HRandomPlus-v0.1.1-playtest/ -o artifacts/HRandomPlus-v0.1.1-playtest-source.zip HEAD
 
           $commit = '122dd102fe272de30471cf1f317805cb49ac23a4'
           $expected = '9872dd7c18a1a8a4ec16b8d66b409f377dda9b6974057a9a889fd5c73fad0535'
@@ -75,17 +113,17 @@ jobs:
 
           Expand-Archive $upstreamArchive artifacts/gpl-source
           Copy-Item docs/GPL_SOURCE_MANIFEST.md artifacts/gpl-source/GPL-SOURCE-MANIFEST.md
-          Compress-Archive -Path artifacts/gpl-source/* -DestinationPath artifacts/HRandomPlus-v0.1.0-playtest-gpl-source.zip
+          Compress-Archive -Path artifacts/gpl-source/* -DestinationPath artifacts/HRandomPlus-v0.1.1-playtest-gpl-source.zip
       - uses: actions/upload-artifact@v7
         with:
           name: HRandomPlus-source
           path: |
-            artifacts/HRandomPlus-v0.1.0-playtest-source.zip
-            artifacts/HRandomPlus-v0.1.0-playtest-gpl-source.zip
+            artifacts/HRandomPlus-v0.1.1-playtest-source.zip
+            artifacts/HRandomPlus-v0.1.1-playtest-gpl-source.zip
 
   release-candidate:
     runs-on: windows-latest
-    needs: [test, windows-artifact, linux-artifact, source-artifacts]
+    needs: [test, windows-artifact, windows-framework-dependent-artifact, linux-artifact, linux-framework-dependent-artifact, source-artifacts]
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -97,15 +135,25 @@ jobs:
           path: artifacts/release
       - uses: actions/download-artifact@v8
         with:
+          name: HRandomPlus-windows-x64-framework-dependent
+          path: artifacts/release
+      - uses: actions/download-artifact@v8
+        with:
+          name: HRandomPlus-linux-x64-framework-dependent
+          path: artifacts/release
+      - uses: actions/download-artifact@v8
+        with:
           name: HRandomPlus-source
           path: artifacts/release
       - shell: pwsh
         run: |
           $expected = @(
-            'HRandomPlus-windows-x64.zip'
-            'HRandomPlus-linux-x64.zip'
-            'HRandomPlus-v0.1.0-playtest-source.zip'
-            'HRandomPlus-v0.1.0-playtest-gpl-source.zip'
+            'HRandomPlus-v0.1.1-playtest-windows-x64.zip'
+            'HRandomPlus-v0.1.1-playtest-linux-x64.zip'
+            'HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip'
+            'HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip'
+            'HRandomPlus-v0.1.1-playtest-source.zip'
+            'HRandomPlus-v0.1.1-playtest-gpl-source.zip'
           )
           foreach ($name in $expected) {
             if (-not (Test-Path "artifacts/release/$name" -PathType Leaf)) {
@@ -119,10 +167,12 @@ jobs:
           $lines | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii
       - uses: actions/upload-artifact@v7
         with:
-          name: HRandomPlus-v0.1.0-playtest-release-candidate
+          name: HRandomPlus-v0.1.1-playtest-release-candidate
           path: |
-            artifacts/release/HRandomPlus-windows-x64.zip
-            artifacts/release/HRandomPlus-linux-x64.zip
-            artifacts/release/HRandomPlus-v0.1.0-playtest-source.zip
-            artifacts/release/HRandomPlus-v0.1.0-playtest-gpl-source.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-windows-x64.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-linux-x64.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-source.zip
+            artifacts/release/HRandomPlus-v0.1.1-playtest-gpl-source.zip
             artifacts/release/SHA256SUMS.txt

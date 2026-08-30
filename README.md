@@ -2,7 +2,7 @@
 
 Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom de osu!mania. Windows detecta osu!stable mediante lectura de memoria read-only; Linux obtiene el beatmap seleccionado desde tosu y resuelve su ruta nativa mediante osu-winello/XDG. Ambos usan exactamente el mismo motor.
 
-Versión actual: **v0.1.0-playtest**. Está dirigida a osu!stable. **osu!lazer todavía no está soportado.**
+Versión actual: **v0.1.1-playtest**. Está dirigida a osu!stable. **osu!lazer todavía no está soportado.**
 
 ## Funciones
 
@@ -133,6 +133,12 @@ dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
   -p:PublishSingleFile=true -o publish/win-x64-avalonia
 ```
 
+### Variantes de distribución
+
+Los ZIP `HRandomPlus-v0.1.1-playtest-windows-x64.zip` y `HRandomPlus-v0.1.1-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
+
+Los ZIP con sufijo `-framework-dependent` son variantes opcionales mucho más pequeñas. Requieren tener instalado **.NET Runtime 8 x64**. No sustituyen a las variantes autocontenidas y conservan el mismo código, configuración y comportamiento observable.
+
 ## CLI OSZ
 
 ```bash
@@ -149,6 +155,6 @@ Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PL
 
 HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
 
-La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria.
+La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Las variantes dependientes del framework no redistribuyen .NET; las autocontenidas sí incluyen el runtime y sus avisos correspondientes.
 
 Los artefactos de GitHub Actions son temporales. Los ZIP y `SHA256SUMS.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag.
