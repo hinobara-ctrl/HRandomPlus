@@ -13,6 +13,8 @@ public static class BeatmapStatusFormatter
                     => "Beatmap detected automatically from osu!stable",
                 _ when update.Result.DetectionSource == BeatmapDetectionSource.Tosu
                     => "Beatmap detected automatically by tosu",
+                _ when update.Result.DetectionSource == BeatmapDetectionSource.Lazer
+                    => "Beatmap detected automatically from osu!lazer",
                 _ => "Beatmap detected automatically"
             };
             return AppendDetail(source, update.Result.Status);

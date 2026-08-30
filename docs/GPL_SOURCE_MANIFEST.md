@@ -1,12 +1,12 @@
 # GPL corresponding-source manifest
 
-Release candidate: `v0.1.1-playtest`
+Release candidate: `v0.2.0-playtest`
 
 This manifest maps all GPL-covered code in the Windows x64 candidate to its corresponding source.
 
 ## HRandomPlus source
 
-HRandomPlus `v0.1.1-playtest` is distributed under `GPL-3.0-or-later`. `HRandomPlus-v0.1.1-playtest-source.zip` is generated from the same repository revision used by the binary jobs and contains the solution, all application and test source, project/build files, `NuGet.Config`, configuration example, workflow, documentation and license material. Generated outputs, package caches, personal configuration and beatmaps are excluded.
+HRandomPlus `v0.2.0-playtest` is distributed under `GPL-3.0-or-later`. `HRandomPlus-v0.2.0-playtest-source.zip` is generated from the same repository revision used by the binary jobs and contains the solution, all application and test source, project/build files, `NuGet.Config`, configuration example, workflow, documentation and license material. Generated outputs, package caches, personal configuration and beatmaps are excluded.
 
 Rebuild commands are documented in `README.md`; the authoritative automated commands are in `.github/workflows/build.yml`.
 
@@ -27,7 +27,7 @@ Both annotated tags resolve to the same commit declared in both NuGet manifests.
 - Downloaded archive SHA-256: `9872dd7c18a1a8a4ec16b8d66b409f377dda9b6974057a9a889fd5c73fad0535`
 - Downloaded archive SHA-512: `b69f4cf66b7d4895b9f629d698debc080628530e711be419fe106a983268cd2d9d5f0324668a9f443b934eea255d205fd0af0f7894633c011c964cf10c0a059e`
 
-`HRandomPlus-v0.1.1-playtest-gpl-source.zip` expands that complete repository snapshot and places this manifest beside it. The snapshot includes both package projects, shared source, solution/build files and the upstream GPL license.
+`HRandomPlus-v0.2.0-playtest-gpl-source.zip` expands that complete repository snapshot and places this manifest beside it. The snapshot includes both package projects, shared source, solution/build files and the upstream GPL license.
 
 ## Distribution set
 

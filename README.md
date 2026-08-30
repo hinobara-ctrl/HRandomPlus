@@ -1,8 +1,8 @@
 # HRandomPlus
 
-Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom de osu!mania. Windows detecta osu!stable mediante lectura de memoria read-only; Linux obtiene el beatmap seleccionado desde tosu y resuelve su ruta nativa mediante osu-winello/XDG. Ambos usan exactamente el mismo motor.
+Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom de osu!mania. Conserva la integración de osu!stable en Windows/Linux y añade detección e importación nativas para osu!lazer en ambos sistemas. Todas las fuentes usan exactamente el mismo motor de randomización.
 
-Versión actual: **v0.1.1-playtest**. Está dirigida a osu!stable. **osu!lazer todavía no está soportado.**
+Versión de desarrollo: **v0.2.0-playtest**.
 
 ## Funciones
 
@@ -11,6 +11,8 @@ Versión actual: **v0.1.1-playtest**. Está dirigida a osu!stable. **osu!lazer t
 - Seeds reproducibles, guardadas también en perfiles personalizados, y rangos parciales.
 - Protección de long notes y validación antes de escribir.
 - Detección de osu!stable en Windows aunque osu!lazer esté abierto.
+- Detección read-only de osu!lazer mediante su log y catálogo Realm, sin tosu ni lectura de memoria.
+- Importación segura a lazer mediante una variante local `.osz`; no modifica `client.realm` ni los blobs originales.
 - Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
 - Estado de origen inequívoco: Windows indica osu!stable, Linux indica tosu y la selección manual permanece diferenciada.
 - Selector manual `.osu` en ambas plataformas.
@@ -23,6 +25,19 @@ Versión actual: **v0.1.1-playtest**. Está dirigida a osu!stable. **osu!lazer t
 La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. Si la detección falla, usa **Select .osu manually** o **Configure osu!stable** y selecciona la raíz que contiene `Songs`.
 
 La salida predeterminada de Windows continúa creándose junto al beatmap original.
+
+## osu!lazer nativo (Windows y Linux)
+
+1. Abre osu!lazer y entra en Song Select.
+2. HRandomPlus localiza el almacenamiento oficial, lee el log runtime activo (incluidos los nombres actuales `<timestamp>.runtime.log`) incrementalmente y resuelve la dificultad contra `client.realm` en modo dinámico y read-only.
+3. Pulsa **Randomize**. El `.osu` generado se conserva en la carpeta de salida de HRandomPlus y se envía a lazer dentro de un `.osz` con los recursos del set.
+4. lazer importa una variante local con IDs desligados (`BeatmapID:0` y `BeatmapSetID:0`); el set y los blobs originales permanecen intactos.
+
+No hacen falta tosu, Wine, `sudo` ni configurar una carpeta `Songs` para lazer nativo. Se reconocen las rutas estándar `%APPDATA%\osu` y `~/.local/share/osu`, el `FullPath` de `storage.ini` y almacenamientos portables compatibles junto al ejecutable. Si el log actual solo publica el nombre visible y más de una dificultad coincide, HRandomPlus deja la selección sin resolver en vez de elegir un mapa arbitrario.
+
+La sección **Platform and output** configura exclusivamente la integración de osu!stable para Linux mediante osu!-Wine/tosu. Permanece deshabilitada en Windows y mientras osu!lazer sea el origen activo.
+
+Cuando stable y lazer están abiertos al mismo tiempo, cada adaptador conserva su identidad y gana la selección que haya cambiado más recientemente. **Select .osu manually** sigue teniendo prioridad hasta que el juego cambie realmente de mapa.
 
 ## Linux nativo con osu-winello
 
@@ -95,7 +110,7 @@ Los perfiles exportados nunca incluyen rutas de osu!, tosu, preferencias de outp
 
 ```text
 HRandomPlus.Core         motor, parser, archivos, perfiles y validación
-HRandomPlus.Integration  tosu, osu-winello, rutas y contratos
+HRandomPlus.Integration  stable/tosu, osu-winello, osu!lazer Realm/log/import y contratos
 HRandomPlus.Desktop      UI Avalonia para Windows/Linux
 HRandomPlus.Cli          diagnóstico y procesamiento .osz
 HRandomPlus.Tests        regresión portable e integración
@@ -135,7 +150,7 @@ dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
 
 ### Variantes de distribución
 
-Los ZIP `HRandomPlus-v0.1.1-playtest-windows-x64.zip` y `HRandomPlus-v0.1.1-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
+Los ZIP `HRandomPlus-v0.2.0-playtest-windows-x64.zip` y `HRandomPlus-v0.2.0-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
 
 Los ZIP con sufijo `-framework-dependent` son variantes opcionales mucho más pequeñas. Requieren tener instalado **.NET Runtime 8 x64**. No sustituyen a las variantes autocontenidas y conservan el mismo código, configuración y comportamiento observable.
 
@@ -147,7 +162,7 @@ HRandomPlus.Cli beatmap.osz --seed 123456 --config config.example.json
 
 ## Pruebas
 
-El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 4K–9K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side simulada y sus fallbacks.
+El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 4K–9K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side y sus fallbacks, logs/rotación/storage/blob/ambigüedad/arbitraje de lazer y creación segura del `.osz` de importación.
 
 Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PLAYTEST_CHECKLIST.md).
 

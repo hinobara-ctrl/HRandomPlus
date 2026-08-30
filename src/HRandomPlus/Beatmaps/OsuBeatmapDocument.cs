@@ -19,7 +19,7 @@ public sealed class OsuBeatmapDocument
     public string Title { get; }
     public string Creator { get; }
     public int BeatmapId { get; private set; }
-    public int BeatmapSetId { get; }
+    public int BeatmapSetId { get; private set; }
     public IReadOnlyList<ManiaHitObject> HitObjects { get; }
 
     private OsuBeatmapDocument(string sourcePath, List<string> lines, Encoding encoding, byte[] bom,
@@ -144,6 +144,12 @@ public sealed class OsuBeatmapDocument
     {
         SetKeyValue("Metadata", "BeatmapID", value.ToString(CultureInfo.InvariantCulture));
         BeatmapId = value;
+    }
+
+    public void SetBeatmapSetId(int value)
+    {
+        SetKeyValue("Metadata", "BeatmapSetID", value.ToString(CultureInfo.InvariantCulture));
+        BeatmapSetId = value;
     }
 
     public IReadOnlyList<double> GetBpms()

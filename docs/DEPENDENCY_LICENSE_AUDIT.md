@@ -1,6 +1,6 @@
 # Dependency and distribution license audit
 
-Date: 2026-08-29
+Date: 2026-08-30
 
 Status: **WINDOWS RELEASE TECHNICALLY READY**
 
@@ -10,9 +10,13 @@ This is a technical inventory, not legal advice. It was produced from project re
 
 | Dependency | Version | License | Platform | Redistributed? | Evidence/source revision |
 |---|---:|---|---|---|---|
-| HRandomPlus-owned code | 0.1.0-playtest | GPL-3.0-or-later | Windows/Linux | Yes | Root `LICENSE`; exact candidate source bundle |
+| HRandomPlus-owned code | 0.2.0-playtest | GPL-3.0-or-later | Windows/Linux | Yes | Root `LICENSE`; exact candidate source bundle |
 | OsuMemoryDataProvider | 0.12.2 | GPL-3.0-or-later | Windows | **Yes**, embedded | NuGet commit `122dd102fe272de30471cf1f317805cb49ac23a4`; tag `osu_v0.12.2` |
 | ProcessMemoryDataFinder | 0.10.2 | GPL-3.0-or-later | Windows | **Yes**, embedded | Same commit; tag `process_v0.10.2` |
+| Realm .NET | 20.1.0 | Apache-2.0 | Windows/Linux | **Yes**, managed assembly plus selected `realm-wrappers` native library | NuGet commit `370ce596a0cf5e992b717bb199d70e55391ff2b9` |
+| MongoDB.Bson | 2.21.0 | Apache-2.0 | Windows/Linux | **Yes**, embedded | NuGet commit `5a9c3311e158910b88195f290e6d4b1b2715d2b2` |
+| Remotion.Linq | 2.2.0 | Apache-2.0 | Windows/Linux | **Yes**, embedded | Exact NuGet package 2.2.0 |
+| Fody / Realm weaver | 6.9.1 / 20.1.0 | MIT / Apache-2.0 | Build only | **No runtime asset** | Resolved but disabled because the integration uses Realm's dynamic API |
 | Avalonia runtime family | 12.1.1 | MIT | Windows/Linux | Yes, embedded | NuGet commit/tag `e33eaed9c106846b200680751022385d9cc5dc6f` / `12.1.1` |
 | Avalonia.BuildServices | 11.3.2 | MIT | Build only | **No runtime asset** | Present in restore/deps metadata only |
 | Avalonia.Angle.Windows.Natives | 2.1.27548.20260419 | License file in package (BSD-3-Clause-style terms) | Windows | Yes, `av_libglesv2.dll` | NuGet commit `1c89805903c1482166356d3b950d474973180e61` |
@@ -28,13 +32,14 @@ This is a technical inventory, not legal advice. It was produced from project re
 
 ## Publish evidence
 
-The Windows multi-file audit publish contains runtime assets from both GPL packages, Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, Tmds.DBus.Protocol, System.IO.Pipelines and the .NET 8.0.30 runtime pack. The final single-file candidate embeds managed assemblies and leaves `av_libglesv2.dll`, `libHarfBuzzSharp.dll` and `libSkiaSharp.dll` alongside the executable.
+The Windows multi-file audit publish contains runtime assets from both GPL packages, Realm, MongoDB.Bson, Remotion.Linq, Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, Tmds.DBus.Protocol, System.IO.Pipelines and the .NET 8.0.30 runtime pack. The final single-file candidate embeds managed assemblies and leaves native libraries such as `realm-wrappers.dll`, `av_libglesv2.dll`, `libHarfBuzzSharp.dll` and `libSkiaSharp.dll` alongside the executable when they are not embedded by the selected publish settings.
 
-The Linux audit publish contains no OsuMemoryDataProvider, ProcessMemoryDataFinder or ANGLE Windows native runtime asset. It uses tosu over HTTP. Avalonia's dependency graph still contributes managed platform assemblies, Tmds.DBus.Protocol and System.IO.Pipelines; selected Linux Skia/HarfBuzz native libraries and .NET native libraries are embedded by the final single-file publish.
+The Linux audit publish contains no OsuMemoryDataProvider, ProcessMemoryDataFinder or ANGLE Windows native runtime asset. Stable uses tosu over HTTP; native lazer uses Realm read-only and includes the Linux x64 Realm wrapper. Avalonia's dependency graph still contributes managed platform assemblies, Tmds.DBus.Protocol and System.IO.Pipelines; selected Linux Realm/Skia/HarfBuzz native libraries and .NET native libraries are embedded by the final single-file publish.
 
 ## Official license material
 
 - GPL text: verbatim upstream `LICENSE` from ProcessMemoryDataFinder commit `122dd102fe272de30471cf1f317805cb49ac23a4`.
+- Apache-2.0 text: verbatim `LICENSE.md` shipped by MongoDB.Bson 2.21.0; it covers the Apache-2.0 declarations of Realm, MongoDB.Bson and Remotion.Linq.
 - Avalonia license/notice: verbatim `licence.md` and `NOTICE.md` from commit `e33eaed9c106846b200680751022385d9cc5dc6f`.
 - ANGLE: verbatim `LICENSE` contained in `Avalonia.Angle.Windows.Natives 2.1.27548.20260419`.
 - SkiaSharp/HarfBuzzSharp: verbatim `LICENSE.txt` and identical `THIRD-PARTY-NOTICES.txt` contained in their selected native NuGet packages.
@@ -45,9 +50,9 @@ The Linux audit publish contains no OsuMemoryDataProvider, ProcessMemoryDataFind
 
 ## GPL source correspondence prepared
 
-`HRandomPlus-v0.1.1-playtest-gpl-source.zip` contains the complete ProcessMemoryDataFinder repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, not a link to a moving branch. That single commit is declared in both NuGet manifests and is the target of both release tags. The bundle includes all repository files, project/build material and the upstream GPL license, plus a provenance manifest.
+`HRandomPlus-v0.2.0-playtest-gpl-source.zip` contains the complete ProcessMemoryDataFinder repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, not a link to a moving branch. That single commit is declared in both NuGet manifests and is the target of both release tags. The bundle includes all repository files, project/build material and the upstream GPL license, plus a provenance manifest.
 
-`HRandomPlus-v0.1.1-playtest-source.zip` contains the HRandomPlus source tree used to build the candidate artifacts.
+`HRandomPlus-v0.2.0-playtest-source.zip` contains the HRandomPlus source tree used to build the candidate artifacts.
 
 ## Distribution readiness
 

@@ -1,9 +1,13 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Diagnostics;
+using HRandomPlus.Beatmaps;
+using HRandomPlus.Integration.Beatmaps;
 
 namespace HRandomPlus.Integration.Importing;
 
-public sealed record BeatmapImportRequest(string OriginalPath, string GeneratedPath, string FallbackDirectory);
+public sealed record BeatmapImportRequest(string OriginalPath, string GeneratedPath, string FallbackDirectory,
+                                          LazerBeatmapSelectionContext? LazerContext = null);
 
 public sealed record BeatmapImportResult(string Strategy, bool AutomaticImportAttempted, bool Success,
                                          string PreservedOutputPath, string Message, string? ImportArchivePath = null,
@@ -24,6 +28,140 @@ public sealed class DirectFileImporter : IBeatmapImporter
                 "The generated beatmap could not be found."));
         return Task.FromResult(new BeatmapImportResult("direct-file", false, true, generated,
             "The generated beatmap was preserved at the output path."));
+    }
+}
+
+public interface IExternalFileLauncher
+{
+    bool Launch(string filePath, string? executablePath, out string? error);
+}
+
+public sealed class SystemExternalFileLauncher : IExternalFileLauncher
+{
+    public bool Launch(string filePath, string? executablePath, out string? error)
+    {
+        try
+        {
+            var start = new ProcessStartInfo { UseShellExecute = true };
+            if (string.IsNullOrWhiteSpace(executablePath)) start.FileName = filePath;
+            else
+            {
+                start.FileName = executablePath;
+                start.ArgumentList.Add(filePath);
+            }
+            using Process? process = Process.Start(start);
+            error = process is null ? "The operating system did not start an importer." : null;
+            return process is not null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+}
+
+public sealed class LazerArchiveImporter : IBeatmapImporter
+{
+    private readonly IExternalFileLauncher launcher;
+    private readonly string temporaryRoot;
+
+    public LazerArchiveImporter(IExternalFileLauncher? launcher = null, string? temporaryRoot = null)
+    {
+        this.launcher = launcher ?? new SystemExternalFileLauncher();
+        this.temporaryRoot = temporaryRoot ?? Path.Combine(Path.GetTempPath(), "HRandomPlus", "lazer-imports");
+    }
+
+    public Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (request.LazerContext is null)
+            return Task.FromResult(new BeatmapImportResult("lazer-osz", false, false, request.GeneratedPath,
+                "No osu!lazer beatmap context was available."));
+        if (!File.Exists(request.GeneratedPath))
+            return Task.FromResult(new BeatmapImportResult("lazer-osz", false, false, request.GeneratedPath,
+                "The generated beatmap could not be found."));
+
+        Directory.CreateDirectory(temporaryRoot);
+        CleanupOldArchives();
+        string archivePath = Path.Combine(temporaryRoot, $"HRandomPlus-{Guid.NewGuid():N}.osz");
+        try
+        {
+            using (ZipArchive archive = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            {
+                var addedEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (BeatmapResource resource in request.LazerContext.SetResources)
+                {
+                    if (resource.LogicalName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!File.Exists(resource.BlobPath)) continue;
+                    string entryName = SafeArchivePath(resource.LogicalName);
+                    if (addedEntries.Add(entryName))
+                        archive.CreateEntryFromFile(resource.BlobPath, entryName, CompressionLevel.Optimal);
+                }
+
+                OsuBeatmapDocument generated = OsuBeatmapDocument.Parse(
+                    request.GeneratedPath, File.ReadAllBytes(request.GeneratedPath));
+                generated.SetBeatmapId(0);
+                generated.SetBeatmapSetId(0);
+                ZipArchiveEntry entry = archive.CreateEntry(Path.GetFileName(request.GeneratedPath), CompressionLevel.Optimal);
+                using Stream output = entry.Open();
+                output.Write(generated.ToBytes());
+            }
+
+            bool launched = launcher.Launch(archivePath, request.LazerContext.LazerExecutablePath, out string? error);
+            if (!launched)
+            {
+                string preserved = PreserveArchive(archivePath, request.FallbackDirectory);
+                return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, request.GeneratedPath,
+                    $"The local variant was generated, but lazer import could not start: {error}", preserved));
+            }
+
+            _ = DeleteLaterAsync(archivePath);
+            return Task.FromResult(new BeatmapImportResult("lazer-osz", true, true, request.GeneratedPath,
+                "The randomised local variant was sent to osu!lazer without modifying its storage directly.", archivePath));
+        }
+        catch (Exception ex)
+        {
+            string? preserved = File.Exists(archivePath) ? PreserveArchive(archivePath, request.FallbackDirectory) : null;
+            return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, request.GeneratedPath,
+                $"The local variant was generated, but its lazer archive failed: {ex.Message}", preserved));
+        }
+    }
+
+    private static string SafeArchivePath(string logicalName)
+    {
+        string path = logicalName.Replace('\\', '/').TrimStart('/');
+        string[] parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || parts.Any(part => part is "." or ".."))
+            throw new InvalidDataException($"Unsafe lazer resource name: {logicalName}");
+        return string.Join('/', parts);
+    }
+
+    private static string PreserveArchive(string source, string fallbackDirectory)
+    {
+        Directory.CreateDirectory(fallbackDirectory);
+        string destination = Path.Combine(fallbackDirectory, "HRandomPlus-lazer-import.osz");
+        for (int index = 2; File.Exists(destination); index++)
+            destination = Path.Combine(fallbackDirectory, $"HRandomPlus-lazer-import-{index}.osz");
+        File.Move(source, destination);
+        return destination;
+    }
+
+    private static async Task DeleteLaterAsync(string path)
+    {
+        await Task.Delay(TimeSpan.FromMinutes(2)).ConfigureAwait(false);
+        try { File.Delete(path); } catch { }
+    }
+
+    private void CleanupOldArchives()
+    {
+        try
+        {
+            foreach (string path in Directory.EnumerateFiles(temporaryRoot, "HRandomPlus-*.osz"))
+                if (File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-1)) File.Delete(path);
+        }
+        catch { }
     }
 }
 

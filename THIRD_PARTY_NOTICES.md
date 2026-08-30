@@ -10,6 +10,9 @@ The versions and source revisions below come from the resolved NuGet manifests, 
 |---|---:|---|---|---|---|
 | OsuMemoryDataProvider | 0.12.2 | GPL-3.0-or-later | Windows only | [commit `122dd102fe272de30471cf1f317805cb49ac23a4`, tag `osu_v0.12.2`](https://github.com/Piotrekol/ProcessMemoryDataFinder/tree/122dd102fe272de30471cf1f317805cb49ac23a4/OsuMemoryDataProvider) | Reads the selected osu!stable beatmap from process memory. Embedded in `HRandomPlus.exe`. |
 | ProcessMemoryDataFinder | 0.10.2 | GPL-3.0-or-later | Windows only | [commit `122dd102fe272de30471cf1f317805cb49ac23a4`, tag `process_v0.10.2`](https://github.com/Piotrekol/ProcessMemoryDataFinder/tree/122dd102fe272de30471cf1f317805cb49ac23a4/ProcessMemoryDataFinder) | Transitive process-memory scanner used by OsuMemoryDataProvider. Embedded in `HRandomPlus.exe`. |
+| Realm .NET | 20.1.0 | Apache-2.0 | Windows and Linux | [commit `370ce596a0cf5e992b717bb199d70e55391ff2b9`](https://github.com/realm/realm-dotnet/tree/370ce596a0cf5e992b717bb199d70e55391ff2b9) | Opens osu!lazer's `client.realm` read-only. The managed Realm assembly and platform-specific `realm-wrappers` native library are redistributed. Copyright © 2025 Realm Inc. |
+| MongoDB.Bson | 2.21.0 | Apache-2.0 | Windows and Linux | [commit `5a9c3311e158910b88195f290e6d4b1b2715d2b2`](https://github.com/mongodb/mongo-csharp-driver/tree/5a9c3311e158910b88195f290e6d4b1b2715d2b2) | Runtime dependency of Realm .NET. Copyright © 2010-present MongoDB Inc. |
+| Remotion.Linq | 2.2.0 | Apache-2.0 | Windows and Linux | [exact NuGet package](https://www.nuget.org/packages/Remotion.Linq/2.2.0) | Runtime LINQ provider dependency of Realm .NET. Copyright © rubicon IT GmbH. |
 | Avalonia runtime package family | 12.1.1 | MIT | Windows and Linux | [commit `e33eaed9c106846b200680751022385d9cc5dc6f`, tag `12.1.1`](https://github.com/AvaloniaUI/Avalonia/tree/e33eaed9c106846b200680751022385d9cc5dc6f) | Desktop UI, platform integration, rendering and Fluent theme. Managed runtime assemblies are embedded. |
 | Avalonia.Angle.Windows.Natives | 2.1.27548.20260419 | BSD-3-Clause-style package license | Windows only | [commit `1c89805903c1482166356d3b950d474973180e61`](https://github.com/AvaloniaUI/angle/tree/1c89805903c1482166356d3b950d474973180e61) | ANGLE/OpenGL native backend; distributed as `av_libglesv2.dll`. |
 | SkiaSharp and Win32/Linux native assets | 3.119.4 | MIT, plus licenses in its official third-party notice | Windows and Linux | [commit `f568ac94dd768ef9a2f593537cfde2dd0d348ef5`, tag `v3.119.4`](https://github.com/mono/SkiaSharp/tree/f568ac94dd768ef9a2f593537cfde2dd0d348ef5) | 2D rendering. The selected native library is external on Windows and embedded on Linux. |
@@ -21,11 +24,14 @@ The versions and source revisions below come from the resolved NuGet manifests, 
 
 `Avalonia.BuildServices 11.3.2` is used during build only and contributes no runtime asset. Restore metadata also contains native packages for unrelated runtime identifiers; they are not copied into the platform-specific publishes. `Microsoft.CSharp 4.7.0` and `System.Data.DataSetExtensions 4.5.0` are visible in the transitive restore graph of the Windows memory packages, but their NuGet package assets are not redistributed separately; the publish uses the corresponding assemblies from the .NET 8.0.30 runtime pack.
 
+`Fody 6.9.1` and Realm's Fody weaver are resolved build-only tools, are disabled because HRandomPlus uses Realm's dynamic API, and are not redistributed. Realm's older `System.*` package dependencies are satisfied by .NET 8 runtime assemblies in the final application rather than copied as separate legacy package binaries.
+
 ## License files packaged by platform
 
 Windows includes:
 
 - `GPL-3.0-or-later.txt`
+- `Apache-2.0.txt` for Realm .NET, MongoDB.Bson and Remotion.Linq
 - `Avalonia-LICENSE.md` and `Avalonia-NOTICE.md`
 - `ANGLE-LICENSE.txt`
 - `SkiaSharp-HarfBuzzSharp-LICENSE.txt` and `SkiaSharp-HarfBuzzSharp-THIRD-PARTY-NOTICES.txt`
@@ -34,12 +40,12 @@ Windows includes:
 - `System.IO.Pipelines-LICENSE.txt` and `System.IO.Pipelines-THIRD-PARTY-NOTICES.txt`
 - `DOTNET-RUNTIME-WINDOWS-LICENSE.txt` and `DOTNET-RUNTIME-WINDOWS-THIRD-PARTY-NOTICES.txt`, extracted verbatim from the official .NET Runtime 8.0.30 Windows x64 distribution
 
-Linux includes the same applicable permissive notices, except it omits `GPL-3.0-or-later.txt`, `ANGLE-LICENSE.txt`, and the Windows .NET files. Its self-contained ZIP instead includes the official Linux .NET Runtime 8.0.30 license and third-party notices.
+Linux includes the same applicable permissive notices, including `Apache-2.0.txt`, except it omits `GPL-3.0-or-later.txt`, `ANGLE-LICENSE.txt`, and the Windows .NET files. Its self-contained ZIP instead includes the official Linux .NET Runtime 8.0.30 license and third-party notices.
 
 Framework-dependent ZIPs contain the same platform-applicable notices except the .NET Runtime license and notice files, because those ZIPs require an independently installed .NET 8 runtime and do not redistribute it.
 
 ## GPL corresponding source
 
-The Release candidate includes `HRandomPlus-v0.1.1-playtest-gpl-source.zip`. It contains the complete upstream repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, which is the exact commit declared by both GPL NuGet packages. The tags `osu_v0.12.2` and `process_v0.10.2` both resolve to that commit. A manifest inside the bundle records this mapping and the official archive checksum.
+The Release candidate includes `HRandomPlus-v0.2.0-playtest-gpl-source.zip`. It contains the complete upstream repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, which is the exact commit declared by both GPL NuGet packages. The tags `osu_v0.12.2` and `process_v0.10.2` both resolve to that commit. A manifest inside the bundle records this mapping and the official archive checksum.
 
-The separate `HRandomPlus-v0.1.1-playtest-source.zip` contains the complete HRandomPlus source corresponding to the candidate binaries, including the solution, project files, NuGet configuration, GitHub Actions workflow, tests, configuration example, documentation, notices and license texts needed to rebuild and audit it. Release binaries and both source archives are distributed together as Release assets and identified by `SHA256SUMS.txt`.
+The separate `HRandomPlus-v0.2.0-playtest-source.zip` contains the complete HRandomPlus source corresponding to the candidate binaries, including the solution, project files, NuGet configuration, GitHub Actions workflow, tests, configuration example, documentation, notices and license texts needed to rebuild and audit it. Release binaries and both source archives are distributed together as Release assets and identified by `SHA256SUMS.txt`.

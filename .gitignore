@@ -1,6 +1,7 @@
 bin/
 obj/
 publish/
+artifacts/
 outputs/
 local-nuget/
 .dotnet-cli-home/
@@ -8,6 +9,7 @@ local-nuget/
 .nuget-packages/
 *.osz
 *.report.json
+FodyWeavers.xsd
 AvaloniaUI/
 smoke-localappdata*/
 PROJECT_CONTEXT_AND_NEXT_STEPS.txt

@@ -1,4 +1,6 @@
-# HRandomPlus v0.1.0-playtest
+# HRandomPlus v0.2.0-playtest
+
+Los checks de stable documentan regresiones ya verificadas. Los checks de lazer fueron completados por el propietario en equipos Windows y Linux reales; la cobertura automatizada los complementa, pero no los sustituye.
 
 ## Windows + osu!stable
 
@@ -35,3 +37,23 @@
 - [x] En el build `r2`, confirmar que un mapa resuelto mediante la ruta configurada aparece como detección automática por tosu, no como selección manual.
 - [x] Seleccionar un `.osu` manual mientras tosu detecta un mapa: la selección manual permanece mientras osu! siga en ese mismo mapa.
 - [x] Después de la prueba manual anterior, cambiar de mapa dentro de osu!: la detección automática recupera el control con el mapa nuevo.
+
+## osu!lazer nativo — Windows x64
+
+- [x] Detectar lazer sin tosu, entrar a Song Select y mostrar **Beatmap detected automatically from osu!lazer**.
+- [x] Con un `storage.ini` que apunte a otra unidad, confirmar que se usa el almacenamiento cuyo `<timestamp>.runtime.log` está activo y que carga el mapa actual.
+- [x] Cambiar dificultad/set y comprobar que la selección se actualiza.
+- [x] Generar e importar H-Random, S-Random y Custom; confirmar recursos, original intacto e IDs locales.
+- [x] Repetir una generación y confirmar nombres únicos.
+- [x] Cerrar/reabrir lazer y confirmar desconexión/reconexión sin congelar la UI.
+- [x] Volver de lazer a stable sin reiniciar HRandomPlus y confirmar que el lector de memoria se reconecta.
+- [x] Con lazer como origen activo, confirmar que **Select .osu manually** y **Configure osu!stable** están deshabilitados y que se reactivan al salir de lazer.
+- [x] Abrir stable y lazer juntos y confirmar que gana la selección modificada más recientemente con la etiqueta de origen correcta.
+
+## osu!lazer nativo — Linux x64
+
+- [x] Repetir detección, cambio de mapa, generación e importación con lazer nativo, sin Wine/tosu/sudo.
+- [x] Probar almacenamiento estándar y uno configurado por `storage.ini`.
+- [x] Confirmar que el flujo stable + osu-winello + tosu sigue funcionando por separado.
+
+Consulta el procedimiento y las limitaciones en [docs/LAZER_IMPLEMENTATION.md](docs/LAZER_IMPLEMENTATION.md).

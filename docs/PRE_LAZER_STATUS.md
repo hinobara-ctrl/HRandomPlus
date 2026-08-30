@@ -1,5 +1,7 @@
 # Punto de congelación pre-lazer
 
+> Historical v0.1.1 baseline. Native lazer development now lives in [`LAZER_IMPLEMENTATION.md`](LAZER_IMPLEMENTATION.md); this file intentionally preserves the pre-lazer record.
+
 Fecha: 2026-08-29
 
 HRandomPlus continúa dirigido exclusivamente a osu!stable. No se implementó soporte, fuente, importador ni acceso al almacenamiento de osu!lazer.

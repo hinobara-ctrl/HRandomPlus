@@ -4,8 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>HRandomPlus</RootNamespace>
+    <DisableFody>true</DisableFody>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Realm" Version="20.1.0" />
     <ProjectReference Include="..\HRandomPlus.Core\HRandomPlus.Core.csproj" />
   </ItemGroup>
 </Project>

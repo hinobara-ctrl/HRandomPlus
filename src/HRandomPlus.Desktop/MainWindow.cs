@@ -27,7 +27,7 @@ public sealed class MainWindow : Window
 
     private readonly ComboBox profileBox = new();
     private readonly TextBlock beatmapTitle = Text("No beatmap selected", 20, FontWeight.SemiBold);
-    private readonly TextBlock beatmapDetails = Text("Select a .osu manually or open osu!stable.");
+    private readonly TextBlock beatmapDetails = Text("Select a .osu manually or open osu!stable / osu!lazer.");
     private readonly TextBlock beatmapPath = Text("");
     private readonly TextBlock status = Text("Starting...");
     private readonly RadioButton wholeMap = new() { Content = "Whole map", GroupName = "range" };
@@ -42,13 +42,20 @@ public sealed class MainWindow : Window
     private readonly Dictionary<int, TextBlock> snapValues = new();
     private readonly TextBox tosuHost = new();
     private readonly TextBox tosuPort = new();
+    private readonly StackPanel platformSettingsPanel = new() { Spacing = 10 };
     private readonly Button randomizeButton = new() { Content = "RANDOMIZE CURRENT MAP", IsEnabled = false, Height = 46 };
+    private readonly Button manualBeatmapButton = new() { Content = "Select .osu manually" };
+    private readonly Button configureStableButton = new()
+    {
+        Content = OperatingSystem.IsWindows() ? "Configure osu!stable" : "Configure native osu! path"
+    };
     private readonly Button saveProfileButton = new() { Content = "Save profile" };
     private readonly Button deleteProfileButton = new() { Content = "Delete profile" };
     private readonly Button resetCustomButton = new() { Content = "Reset Custom" };
 
     private HRandomConfig activeConfig = new();
     private string? currentPath;
+    private LazerBeatmapSelectionContext? currentLazerContext;
     private bool randomizing;
 
     public MainWindow()
@@ -97,9 +104,11 @@ public sealed class MainWindow : Window
         left.Children.Add(beatmapTitle);
         left.Children.Add(beatmapDetails);
         left.Children.Add(beatmapPath);
+        manualBeatmapButton.Click += async (_, _) => await SelectManualAsync();
+        configureStableButton.Click += async (_, _) => await SelectOsuFolderAsync();
         var selectButtons = Row();
-        selectButtons.Children.Add(Button("Select .osu manually", SelectManualAsync));
-        selectButtons.Children.Add(Button(OperatingSystem.IsWindows() ? "Configure osu!stable" : "Configure native osu! path", SelectOsuFolderAsync));
+        selectButtons.Children.Add(manualBeatmapButton);
+        selectButtons.Children.Add(configureStableButton);
         left.Children.Add(selectButtons);
 
         left.Children.Add(Section("PROFILE"));
@@ -134,10 +143,12 @@ public sealed class MainWindow : Window
         Control tosuPortSetting = Labeled("tosu port", tosuPort);
         tosuHostSetting.IsVisible = !OperatingSystem.IsWindows();
         tosuPortSetting.IsVisible = !OperatingSystem.IsWindows();
-        left.Children.Add(tosuHostSetting);
-        left.Children.Add(tosuPortSetting);
-        left.Children.Add(outputToBeatmapFolder);
-        left.Children.Add(Button("Apply settings", ApplyPlatformSettings));
+        platformSettingsPanel.IsEnabled = !OperatingSystem.IsWindows();
+        platformSettingsPanel.Children.Add(tosuHostSetting);
+        platformSettingsPanel.Children.Add(tosuPortSetting);
+        platformSettingsPanel.Children.Add(outputToBeatmapFolder);
+        platformSettingsPanel.Children.Add(Button("Apply settings", ApplyPlatformSettings));
+        left.Children.Add(platformSettingsPanel);
         randomizeButton.Click += async (_, _) => await RandomizeAsync();
         left.Children.Add(randomizeButton);
         left.Children.Add(Section("STATUS"));
@@ -196,7 +207,7 @@ public sealed class MainWindow : Window
                 settings.LastManualDirectory = Path.GetDirectoryName(path);
                 SaveSettings();
                 detectionState.MarkManualSelection();
-                SetBeatmap(path, "Manual beatmap selected");
+                SetBeatmap(path, "Manual beatmap selected", null);
             }
         }
         catch (Exception ex) { ShowError(ex); }
@@ -257,12 +268,13 @@ public sealed class MainWindow : Window
         catch { return null; }
     }
 
-    private void SetBeatmap(string path, string state)
+    private void SetBeatmap(string path, string state, LazerBeatmapSelectionContext? lazerContext = null)
     {
         path = Path.GetFullPath(path);
         OsuBeatmapDocument document = OsuBeatmapDocument.Parse(path, File.ReadAllBytes(path));
         if (document.Mode != 3) throw new InvalidDataException("The selected file is not an osu!mania beatmap.");
         currentPath = path;
+        currentLazerContext = lazerContext;
         beatmapTitle.Text = $"{document.Artist} - {document.Title}";
         beatmapDetails.Text = $"[{document.Version}]  ·  {document.Creator}  ·  {document.Keys}K";
         beatmapPath.Text = path;
@@ -291,10 +303,11 @@ public sealed class MainWindow : Window
                     if (cancellationToken.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
+                        UpdateSourceSpecificControls(result);
                         BeatmapDetectionUpdate update = detectionState.Observe(result);
                         if ((update.SelectionChanged || update.OriginChanged) && result.Selection is not null)
                         {
-                            try { SetBeatmap(result.Selection.NativePath, BeatmapStatusFormatter.Format(update, currentPath is not null)); }
+                            try { SetBeatmap(result.Selection.NativePath, BeatmapStatusFormatter.Format(update, currentPath is not null), result.Selection.LazerContext); }
                             catch (Exception ex) { SetStatus(ex.Message); }
                         }
                         else if (update.ShouldUpdateUi)
@@ -329,6 +342,14 @@ public sealed class MainWindow : Window
         catch (OperationCanceledException) { }
     }
 
+    private void UpdateSourceSpecificControls(BeatmapSourceResult result)
+    {
+        bool lazerActive = result.DetectionSource == BeatmapDetectionSource.Lazer && result.IsAvailable;
+        manualBeatmapButton.IsEnabled = !lazerActive;
+        configureStableButton.IsEnabled = !lazerActive;
+        platformSettingsPanel.IsEnabled = OperatingSystem.IsLinux() && !lazerActive;
+    }
+
     private async Task RandomizeAsync()
     {
         if (currentPath is null) return;
@@ -346,19 +367,21 @@ public sealed class MainWindow : Window
             randomizeButton.IsEnabled = false;
             SetStatus("Randomizing...");
             bool outputBeside = outputToBeatmapFolder.IsChecked == true;
-            bool useWineSide = BeatmapImportPolicy.ShouldUseWineSide(OperatingSystem.IsLinux(), outputBeside);
-            string? outputDirectory = outputBeside && !useWineSide ? null : AppPaths.OutputDirectory;
-            IBeatmapImporter importer = useWineSide
-                ? new WineSideFileImporter(processRunner)
-                : new DirectFileImporter();
-            string importStrategy = useWineSide ? "wine-side-copy" : "direct-file";
+            LazerBeatmapSelectionContext? lazerContext = currentLazerContext;
+            bool useLazer = lazerContext is not null;
+            bool useWineSide = !useLazer && BeatmapImportPolicy.ShouldUseWineSide(OperatingSystem.IsLinux(), outputBeside);
+            string? outputDirectory = useLazer || useWineSide || !outputBeside ? AppPaths.OutputDirectory : null;
+            IBeatmapImporter importer = useLazer
+                ? new LazerArchiveImporter()
+                : useWineSide ? new WineSideFileImporter(processRunner) : new DirectFileImporter();
+            string importStrategy = useLazer ? "lazer-osz" : useWineSide ? "wine-side-copy" : "direct-file";
             store.Log($"Randomize started; platform={Environment.OSVersion.Platform}; beatmap={snapshot}; profile={profile}; range={rangeDescription}; seed={(config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "random")}; importStrategy={importStrategy}");
             GenerationResult result = await Task.Run(() => generator.Generate(snapshot, config, range, outputDirectory));
             BeatmapImportResult import = await importer.ImportAsync(
-                new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory),
+                new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory, lazerContext),
                 pollingCancellation.Token);
             seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
-            string importMessage = useWineSide ? $"\n{import.Message}" : string.Empty;
+            string importMessage = useWineSide || useLazer ? $"\n{import.Message}" : string.Empty;
             SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {import.PreservedOutputPath}{importMessage}");
             store.Log($"Randomize completed; output={import.PreservedOutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; automaticAttempted={import.AutomaticImportAttempted}; fallback={import.FallbackUsed}; importSuccess={import.Success}; message={import.Message}");
             if (!string.IsNullOrWhiteSpace(import.Diagnostics)) store.Log($"Import diagnostics: {import.Diagnostics}");

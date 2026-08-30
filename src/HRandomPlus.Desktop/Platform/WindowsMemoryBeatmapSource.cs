@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using HRandomPlus.Core;
 using HRandomPlus.Integration.Beatmaps;
+using HRandomPlus.Integration.Lazer;
 using OsuMemoryDataProvider;
 using ProcessMemoryDataFinder;
 
@@ -8,19 +9,20 @@ namespace HRandomPlus.Desktop.Platform;
 
 internal static partial class PlatformSourceFactory
 {
-    public static partial IBeatmapSource Create(AppSettings settings) => new WindowsMemoryBeatmapSource(settings);
+    public static partial IBeatmapSource Create(AppSettings settings) => new ArbitratingBeatmapSource(
+        new WindowsMemoryBeatmapSource(settings), new LazerCurrentBeatmapSource());
 }
 
-internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource
+internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
 {
     private readonly AppSettings settings;
-    private readonly StructuredOsuMemoryReader reader = StructuredOsuMemoryReader.GetInstance(
-        new ProcessTargetOptions("osu!", null!, false));
+    private StructuredOsuMemoryReader? reader;
+    private int? stableProcessId;
+    private DateTimeOffset readerCreatedAt;
 
     public WindowsMemoryBeatmapSource(AppSettings settings)
     {
         this.settings = settings;
-        reader.ProcessWatcherDelayMs = 250;
     }
 
     public Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
@@ -28,12 +30,21 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource
 
     private BeatmapSourceResult ReadCurrent()
     {
-        Process? process = FindStableProcess();
-        if (process is null) return BeatmapSourceResult.Unavailable("osu!stable not detected");
+        using Process? process = FindStableProcess();
+        if (process is null)
+        {
+            ResetReader();
+            return BeatmapSourceResult.Unavailable("osu!stable not detected");
+        }
         try
         {
-            if (!reader.CanRead)
-                return BeatmapSourceResult.Unavailable("osu!stable detected, but its memory is not accessible");
+            EnsureReader(process.Id);
+            if (reader is null || !reader.CanRead)
+            {
+                if (DateTimeOffset.UtcNow - readerCreatedAt >= TimeSpan.FromSeconds(2))
+                    RecreateReader(process.Id);
+                return BeatmapSourceResult.Waiting("osu!stable detected; connecting to its memory reader");
+            }
             if (!reader.TryRead(reader.OsuMemoryAddresses.Beatmap))
                 return BeatmapSourceResult.Waiting("Could not read current beatmap");
             var beatmap = reader.OsuMemoryAddresses.Beatmap;
@@ -52,6 +63,29 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource
                 detectionSource: BeatmapDetectionSource.WindowsMemory);
         }
         catch (Exception ex) { return BeatmapSourceResult.Unavailable($"Memory detection unavailable: {ex.Message}"); }
+    }
+
+    private void EnsureReader(int processId)
+    {
+        if (reader is not null && stableProcessId == processId) return;
+        RecreateReader(processId);
+    }
+
+    private void RecreateReader(int processId)
+    {
+        ResetReader();
+        reader = new StructuredOsuMemoryReader(new ProcessTargetOptions("osu!", null!, false));
+        reader.ProcessWatcherDelayMs = 250;
+        stableProcessId = processId;
+        readerCreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private void ResetReader()
+    {
+        reader?.Dispose();
+        reader = null;
+        stableProcessId = null;
+        readerCreatedAt = default;
     }
 
     private Process? FindStableProcess()
@@ -88,4 +122,6 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource
         catch { }
         return null;
     }
+
+    public void Dispose() => ResetReader();
 }
