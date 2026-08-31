@@ -10,7 +10,7 @@
 - `HARDENING_v0.2.1.md` — correcciones dirigidas de v0.2.1, evidencia y clasificaciones finales.
 - `LINUX_POST_AUDIT_TESTS_v0.2.1.md` — comprobaciones Linux de las correcciones posteriores a la auditoría, a cargo del propietario.
 - `RELEASE_NOTES_v0.2.1-playtest.md` — notas del candidato actual.
-- `ESTUDIO_TAMANO_Y_OPTIMIZACION_v0.2.1.md` — evolución del tamaño, mediciones actuales y oportunidades de optimización priorizadas.
+- `ESTUDIO_TAMANO_Y_OPTIMIZACION_v0.2.1.md` — estudio histórico de tamaño; sus variantes self-contained ya no representan la política vigente.
 - `CHECKLIST_FUNCIONAL_FINAL_v0.2.1.md` — gate manual mínimo de los binarios actuales, separado de la evidencia automatizada ya cerrada.
 
 ## Histórica / investigación

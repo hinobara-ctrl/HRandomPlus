@@ -2,18 +2,16 @@
 
 Objetivo: confirmar que los binarios posteriores al endurecimiento siguen funcionando en integraciones reales, sin repetir comprobaciones ya demostradas explícitamente.
 
-Código del binario: `ef9a30f`. Documentación actual: `8b6e9be`. Los cuatro paquetes que deben probarse están en `artifacts/latest/`.
+Código de producción del binario local auditado: `ef9a30f`. La distribución vigente contiene un paquete framework-dependent por plataforma.
 
 ## Evidencia ya cerrada — no repetir
 
 - [x] Compilación Release de toda la solución: 0 errores.
-- [x] Suite automatizada: 146 aprobadas, 0 fallidas.
-- [x] Publicación de las cuatro variantes Windows/Linux completada.
-- [x] Integridad de los cuatro ZIP y `SHA256SUMS.txt` verificada.
+- [x] Suite automatizada histórica: 188 aprobadas, 0 fallidas; la misma suite precompilada volvió a pasar sin build durante la auditoría local.
+- [x] Flujo framework-dependent sin .NET 8, enlace de instalación, instalación y reapertura validado.
 - [x] ZIP sin PDB, con README, configuración, licencia y avisos aplicables.
-- [x] Permiso ejecutable almacenado en ambos ZIP Linux.
-- [x] Binario Windows autocontenido iniciado y cerrado correctamente cinco veces; la UI respondió.
-- [x] Motor 4K–9K, seeds, H-Random/S-Random, long notes, rangos, parser y validación cubiertos automáticamente.
+- [x] La necesidad de conservar variantes self-contained por el flujo de instalación quedó descartada.
+- [x] Motor 1K–18K, seeds, H-Random/S-Random, long notes, rangos, parser y validación cubiertos automáticamente.
 - [x] Persistencia, migración, duplicación, importación/exportación y conflictos de perfiles cubiertos automáticamente y ya aprobados en playtests anteriores.
 - [x] Corrupción/transitorios de `config.json`, límites de `.osz`, traversal, duplicados Realm, Unicode dividido, cancelación y sensibilidad de mayúsculas cubiertos por regresiones deterministas.
 
@@ -31,9 +29,8 @@ No es necesario recorrer todos los parámetros ni repetir cada perfil. Para el e
 
 ### Paquete y arranque
 
-- [ ] Extraer `HRandomPlus-v0.2.1-playtest-windows-x64.zip` en una carpeta nueva, verificar su SHA-256 y abrir `HRandomPlus.exe` desde esa extracción.
+- [ ] Extraer `HRandomPlus-v0.2.1-playtest-windows-x64-framework-dependent.zip` en una carpeta nueva, verificar su SHA-256 y abrir `HRandomPlus.exe` desde esa extracción.
 - [ ] Sin osu! abierto, confirmar que la UI sigue respondiendo, muestra un estado de espera y permite cerrarla normalmente.
-- [ ] Extraer y abrir una vez la variante `windows-x64-framework-dependent`; confirmar que funciona con .NET 8 x64 instalado o que informa claramente el requisito si falta.
 
 ### osu!stable
 
@@ -56,8 +53,7 @@ No es necesario recorrer todos los parámetros ni repetir cada perfil. Para el e
 
 ### Paquete y arranque
 
-- [ ] Verificar `SHA256SUMS.txt`, extraer `HRandomPlus-v0.2.1-playtest-linux-x64.zip` en una carpeta nueva y confirmar que `./HRandomPlus` abre sin `sudo`.
-- [ ] Abrir una vez la variante `linux-x64-framework-dependent` con .NET 8 x64 instalado.
+- [ ] Verificar `SHA256SUMS.txt`, extraer `HRandomPlus-v0.2.1-playtest-linux-x64-framework-dependent.zip` en una carpeta nueva y confirmar que `./HRandomPlus` abre sin `sudo` con .NET 8 x64 instalado.
 - [ ] Sin ningún osu! abierto, confirmar UI responsiva, estado de espera y cierre limpio.
 
 ### osu!stable mediante osu-winello/tosu

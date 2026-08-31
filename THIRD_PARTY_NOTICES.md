@@ -2,7 +2,7 @@
 
 HRandomPlus is distributed under `GPL-3.0-or-later`; the complete terms are in the root `LICENSE`. It includes or embeds the third-party components listed below, and every third-party component retains its own copyright notices and license terms.
 
-The versions and source revisions below come from the resolved NuGet manifests, `project.assets.json`, and the runtime assets observed in platform-specific publishes. The primary packages are self-contained; optional framework-dependent packages do not redistribute the .NET Runtime or host.
+The versions and source revisions below come from the resolved NuGet manifests, `project.assets.json`, and the runtime assets observed in platform-specific publishes. The two distributed application packages are framework-dependent and do not redistribute the .NET Runtime or host.
 
 ## Redistributed components
 
@@ -18,9 +18,8 @@ The versions and source revisions below come from the resolved NuGet manifests, 
 | SkiaSharp and Win32/Linux native assets | 3.119.4 | MIT, plus licenses in its official third-party notice | Windows and Linux | [commit `f568ac94dd768ef9a2f593537cfde2dd0d348ef5`, tag `v3.119.4`](https://github.com/mono/SkiaSharp/tree/f568ac94dd768ef9a2f593537cfde2dd0d348ef5) | 2D rendering. The selected native library is external on Windows and embedded on Linux. |
 | HarfBuzzSharp and Win32/Linux native assets | 8.3.1.3 | MIT, plus licenses in its official third-party notice | Windows and Linux | [commit `2888c737ad016d584c74525e2d35db5097ea8576`](https://github.com/mono/SkiaSharp/tree/2888c737ad016d584c74525e2d35db5097ea8576) | Text shaping. The selected native library is external on Windows and embedded on Linux. |
 | MicroCom.Runtime | 0.11.6 | MIT | Windows and Linux | [commit `76785efcafd91b5902fd19dd11145f6dd655b7b4`](https://github.com/kekekeks/MicroCom/tree/76785efcafd91b5902fd19dd11145f6dd655b7b4) | COM interop support used by Avalonia platform code. |
-| Tmds.DBus.Protocol | 0.94.1 | MIT | Windows and Linux | [commit `b4a7fed0b878f74cb54f7cca84d2889af4e596ba`](https://github.com/tmds/Tmds.DBus/tree/b4a7fed0b878f74cb54f7cca84d2889af4e596ba) | D-Bus protocol dependency of Avalonia FreeDesktop support. The managed assembly is present in both self-contained publishes. Package copyright: Tom Deseyn. |
+| Tmds.DBus.Protocol | 0.94.1 | MIT | Windows and Linux | [commit `b4a7fed0b878f74cb54f7cca84d2889af4e596ba`](https://github.com/tmds/Tmds.DBus/tree/b4a7fed0b878f74cb54f7cca84d2889af4e596ba) | D-Bus protocol dependency of Avalonia FreeDesktop support. The managed assembly is embedded in both application publishes. Package copyright: Tom Deseyn. |
 | System.IO.Pipelines | 8.0.0 | MIT | Windows and Linux | [commit `5535e31a712343a63f5d7d796cd874e563e5ac14`](https://github.com/dotnet/runtime/tree/5535e31a712343a63f5d7d796cd874e563e5ac14) | Runtime pipeline dependency of Tmds.DBus.Protocol. |
-| .NET Runtime and host | 8.0.30 | Microsoft .NET Library license on Windows; MIT on Linux; official third-party notices apply | Windows and Linux self-contained packages only | [commit `a83db3e0eb2defb6220e15dae2f1a0462fdbf99f`, tag `v8.0.30`](https://github.com/dotnet/runtime/tree/a83db3e0eb2defb6220e15dae2f1a0462fdbf99f) | Self-contained runtime, host and base class libraries embedded in or shipped with each primary application package. Not redistributed in framework-dependent packages. |
 
 `Avalonia.BuildServices 11.3.2` is used during build only and contributes no runtime asset. Restore metadata also contains native packages for unrelated runtime identifiers; they are not copied into the platform-specific publishes. `Microsoft.CSharp 4.7.0` and `System.Data.DataSetExtensions 4.5.0` are visible in the transitive restore graph of the Windows memory packages, but their NuGet package assets are not redistributed separately; the publish uses the corresponding assemblies from the .NET 8.0.30 runtime pack.
 
@@ -28,7 +27,7 @@ The versions and source revisions below come from the resolved NuGet manifests, 
 
 ## License files packaged by platform
 
-Windows includes:
+The distributed Windows package includes:
 
 - `GPL-3.0-or-later.txt`
 - `Apache-2.0.txt` for Realm .NET, MongoDB.Bson and Remotion.Linq
@@ -38,11 +37,10 @@ Windows includes:
 - `MicroCom-LICENSE.txt`
 - `MIT-SPDX.txt` for packages declaring the SPDX `MIT` expression without shipping a separate license file; copyright attribution remains in this notice
 - `System.IO.Pipelines-LICENSE.txt` and `System.IO.Pipelines-THIRD-PARTY-NOTICES.txt`
-- `DOTNET-RUNTIME-WINDOWS-LICENSE.txt` and `DOTNET-RUNTIME-WINDOWS-THIRD-PARTY-NOTICES.txt`, extracted verbatim from the official .NET Runtime 8.0.30 Windows x64 distribution
 
-Linux includes the same applicable permissive notices, including `Apache-2.0.txt`, except it omits `GPL-3.0-or-later.txt`, `ANGLE-LICENSE.txt`, and the Windows .NET files. Its self-contained ZIP instead includes the official Linux .NET Runtime 8.0.30 license and third-party notices.
+The distributed Linux package includes the same applicable permissive notices, including `Apache-2.0.txt`, except it omits `GPL-3.0-or-later.txt` and `ANGLE-LICENSE.txt` because those Windows-only components are absent.
 
-Framework-dependent ZIPs contain the same platform-applicable notices except the .NET Runtime license and notice files, because those ZIPs require an independently installed .NET 8 runtime and do not redistribute it.
+Both packages require an independently installed .NET 8 x64 runtime. They do not redistribute .NET, so .NET Runtime license/notice files are not packaged. The official .NET 8.0.30 texts retained under `licenses/` document earlier audited self-contained outputs and are not selected by the current workflow.
 
 ## GPL corresponding source
 

@@ -1,5 +1,7 @@
 # Estudio de tamaño y oportunidades de optimización — v0.2.1
 
+> Documento histórico de medición. La política vigente distribuye únicamente los dos paquetes x64 framework-dependent; las variantes self-contained citadas aquí ya no son descargas normales.
+
 Fecha: 2026-08-30
 
 Este estudio compara los paquetes históricos medidos de v0.1.x y v0.2.0 con una publicación local nueva del commit `ef9a30f`. No cambia código ni comportamiento. Las cifras actuales se obtuvieron con .NET SDK 8.0.424 en Windows; GitHub Actions usa SDK 10 y puede producir diferencias pequeñas de bytes.

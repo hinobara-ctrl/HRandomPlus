@@ -130,31 +130,32 @@ dotnet build HRandomPlus.sln -c Release
 dotnet run --project tests/HRandomPlus.Tests/HRandomPlus.Tests.csproj -c Release
 ```
 
-Linux x64 autocontenido:
+Linux x64 dependiente del framework:
 
 ```bash
 dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj \
-  -c Release -f net8.0 -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -o publish/linux-x64
+  -c Release -f net8.0 -r linux-x64 --self-contained false \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -o publish/linux-x64-framework-dependent
 
 dotnet publish src/HRandomPlus.Cli/HRandomPlus.Cli.csproj \
-  -c Release -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -o publish/linux-x64-cli
+  -c Release -r linux-x64 --self-contained false \
+  -p:PublishSingleFile=true -o publish/linux-x64-cli-framework-dependent
 ```
 
 Windows x64 Avalonia:
 
 ```powershell
 dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
-  -c Release -f net8.0-windows -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -o publish/win-x64-avalonia
+  -c Release -f net8.0-windows -r win-x64 --self-contained false `
+  -p:PublishSingleFile=true -o publish/windows-x64-framework-dependent
 ```
 
 ### Variantes de distribución
 
-Los ZIP `HRandomPlus-v0.2.1-playtest-windows-x64.zip` y `HRandomPlus-v0.2.1-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
+La distribución vigente tiene exactamente dos artefactos binarios principales: `HRandomPlus-v0.2.1-playtest-windows-x64-framework-dependent.zip` y `HRandomPlus-v0.2.1-playtest-linux-x64-framework-dependent.zip`. Ambos requieren **.NET Runtime 8 x64** instalado. Los paquetes autocontenidos dejaron de formar parte de la distribución normal.
 
-Los ZIP con sufijo `-framework-dependent` son variantes opcionales mucho más pequeñas. Requieren tener instalado **.NET Runtime 8 x64**. No sustituyen a las variantes autocontenidas y conservan el mismo código, configuración y comportamiento observable.
+Las fuentes exactas de HRandomPlus y el snapshot GPL correspondiente se publican como assets adicionales de cumplimiento y reproducibilidad; no son variantes binarias de la aplicación.
 
 ## CLI OSZ
 
@@ -166,7 +167,7 @@ La lectura y extracción de `.osz` usa límites generosos y copia por streaming 
 
 ## Pruebas
 
-El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 4K–9K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side y sus fallbacks, logs/rotación/storage/blob/ambigüedad/arbitraje de lazer y creación segura del `.osz` de importación.
+El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 1K–18K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side y sus fallbacks, logs/rotación/storage/blob/ambigüedad/arbitraje de lazer y creación segura del `.osz` de importación.
 
 Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PLAYTEST_CHECKLIST.md).
 
@@ -174,6 +175,6 @@ Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PL
 
 HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
 
-La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Las variantes dependientes del framework no redistribuyen .NET; las autocontenidas sí incluyen el runtime y sus avisos correspondientes.
+La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Los dos paquetes distribuidos dependen del framework y no redistribuyen .NET.
 
 Los artefactos de GitHub Actions son temporales. Los ZIP y `SHA256SUMS.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag.

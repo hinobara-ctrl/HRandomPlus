@@ -1,5 +1,7 @@
 # Preparación de release: v0.1.0-playtest
 
+> Documento histórico. No describe la política vigente de v0.2.1, que distribuye dos binarios framework-dependent y conserva las fuentes como assets adicionales.
+
 Fecha: 2026-08-29
 
 ## Estado inicial y de GitHub
@@ -34,7 +36,7 @@ Fecha: 2026-08-29
 
 `outputs/SHA256SUMS.txt` es el manifiesto autoritativo de los archivos finales exactos. Los ZIP binarios excluyen PDB, bin/obj, cachés, logs, configuración personal, beatmaps y ZIP anidados. Incluyen archivos del ejecutable/runtime, README, licencia de HRandomPlus, configuración de ejemplo, aviso de terceros y solo los textos de licencia aplicables a esa plataforma. Los ZIP de fuentes son assets separados de la Release.
 
-Los artifacts de GitHub Actions son outputs temporales de CI. Los assets de GitHub Release son descargas estables adjuntas a un tag. Toda Release futura debe adjuntar los cuatro ZIP y `SHA256SUMS.txt`, incluso después de que Actions termine correctamente.
+Los artifacts de GitHub Actions son outputs temporales de CI. Los assets de GitHub Release son descargas estables adjuntas a un tag. Para este candidato v0.1.0 se exigían los cuatro ZIP y `SHA256SUMS.txt`, incluso después de que Actions terminara correctamente.
 
 ## Condiciones
 

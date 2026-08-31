@@ -8,12 +8,24 @@ namespace HRandomPlus.Tests;
 public class HRandomPlusEngineTests
 {
     [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
     [InlineData(7)]
     [InlineData(8)]
     [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(18)]
     public void RandomizesStreamsJacksJumpstreamsHandstreamsChordjacksAndDensePatterns(int keys)
     {
         var lines = new List<string>();
@@ -46,6 +58,49 @@ public class HRandomPlusEngineTests
         Assert.Equal(lines.Count, result.After.TotalNotes);
         Assert.Equal(result.Before.Chords, result.After.Chords);
         Assert.All(document.HitObjects, h => Assert.InRange(h.AssignedColumn, 0, keys - 1));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(18)]
+    public void PreservesLongNotesAndRoundTripsEverySupportedKeymode(int keys)
+    {
+        var lines = new List<string> { TestBeatmaps.LongNote(keys, 0, 1000, 2000) };
+
+        // Exercise notes alongside an active LN whenever the keymode has a free column.
+        for (int column = 1; column < Math.Min(keys, 5); column++)
+            lines.Add(TestBeatmaps.Note(keys, column, 1200));
+
+        // Reusing an LN column exactly at its tail is valid and stresses full chords.
+        for (int column = 0; column < keys; column++)
+            lines.Add(TestBeatmaps.Note(keys, column, 2000));
+
+        byte[] source = TestBeatmaps.Mania(keys, lines);
+        OsuBeatmapDocument original = OsuBeatmapDocument.Parse("ln-range-original.osu", source);
+        OsuBeatmapDocument randomized = OsuBeatmapDocument.Parse("ln-range.osu", source);
+
+        new HRandomPlusEngine(new HRandomConfig()).Randomize(randomized.HitObjects, keys, 20260831);
+        BeatmapValidator.ValidatePlayableStructure(randomized.HitObjects, keys, assigned: true);
+        randomized.ApplyObjects();
+
+        OsuBeatmapDocument reparsed = OsuBeatmapDocument.Parse("ln-range-output.osu", randomized.ToBytes());
+        BeatmapValidator.ValidateTransformation(original, reparsed);
     }
 
     [Fact]

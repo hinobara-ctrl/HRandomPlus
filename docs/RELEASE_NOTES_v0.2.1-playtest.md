@@ -28,8 +28,12 @@ Esta es una actualización enfocada en corrección, robustez y reproducibilidad 
 - Maneja usos duplicados de archivos Realm y nombres temporales específicos del filesystem con diagnósticos controlados.
 - Añade extracción de `.osz` por streaming y acotada, además de manejo consistente de rutas/mayúsculas según el SO en extracción, hashing y validación.
 
-La suite automatizada completa contiene ahora 146 pruebas aprobadas. El pequeño conjunto de confirmaciones de plataforma en Linux real queda a cargo del propietario y está documentado por separado.
+La suite automatizada completa contiene ahora 188 pruebas aprobadas. El pequeño conjunto de confirmaciones de plataforma en Linux real queda a cargo del propietario y está documentado por separado.
 
 El `storage.ini` personalizado ya fue verificado en Windows y Linux reales. Las comprobaciones manuales de regresión en Linux para las rutas modificadas de Wine/importación siguen siendo un paso del candidato a cargo del propietario.
 
 HRandomPlus permanece bajo `GPL-3.0-or-later`. No cambió ninguna dependencia ni el modelo de licencias; los avisos de terceros y requisitos de fuentes correspondientes existentes siguen vigentes.
+
+## Distribución vigente
+
+La release se prepara con dos binarios principales, ambos dependientes de .NET Runtime 8 x64: Windows x64 y Linux x64. Las variantes self-contained anteriores se conservan únicamente como antecedente histórico y ya no forman parte del empaquetado normal. Los ZIP de fuentes exactas de HRandomPlus y del snapshot GPL continúan como assets adicionales obligatorios.
