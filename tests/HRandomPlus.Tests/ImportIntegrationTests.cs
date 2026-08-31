@@ -1,10 +1,33 @@
 using System.IO.Compression;
+using System.Diagnostics;
 using HRandomPlus.Integration.Importing;
 
 namespace HRandomPlus.Tests;
 
 public class ImportIntegrationTests
 {
+    [Fact]
+    public void SystemProcessRunnerCancelsLongRunningChildPromptly()
+    {
+        ProcessRunRequest request = OperatingSystem.IsWindows()
+            ? new ProcessRunRequest("cmd", new[] { "/d", "/c", "ping 127.0.0.1 -n 30 > nul" }, TimeSpan.FromMinutes(1))
+            : new ProcessRunRequest("/bin/sh", new[] { "-c", "sleep 30" }, TimeSpan.FromMinutes(1));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var elapsed = Stopwatch.StartNew();
+        bool cancelled = false;
+        try
+        {
+            _ = new SystemProcessRunner().RunAsync(request, cancellation.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+        }
+
+        Assert.True(cancelled);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5));
+    }
+
     [Fact]
     public void WineSideImporterUsesWinepathAndSeparatedArgumentsForComplexPaths()
     {

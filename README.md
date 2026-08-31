@@ -96,7 +96,7 @@ Windows conserva `%LOCALAPPDATA%\HRandomPlus`. Linux sigue XDG:
 - Datos y salidas: `$XDG_DATA_HOME/HRandomPlus`.
 - Log: `$XDG_STATE_HOME/HRandomPlus/logs/latest.log`.
 
-Una configuración corrupta restaura defaults y no impide iniciar la aplicación.
+Una configuración con JSON corrupto se respalda antes de restaurar defaults. Los fallos transitorios de lectura o permisos no sobrescriben el archivo original ni impiden iniciar la aplicación.
 
 ## Perfiles
 
@@ -161,6 +161,8 @@ Los ZIP con sufijo `-framework-dependent` son variantes opcionales mucho más pe
 ```bash
 HRandomPlus.Cli beatmap.osz --seed 123456 --config config.example.json
 ```
+
+La lectura y extracción de `.osz` usa límites generosos y copia por streaming para rechazar archivos patológicos sin cargar recursos grandes completos en memoria.
 
 ## Pruebas
 

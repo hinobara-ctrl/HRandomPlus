@@ -138,10 +138,15 @@ public sealed class LazerBeatmapResolver : ILazerBeatmapResolver
         }
         else throw new InvalidDataException("The lazer log entry has no resolvable beatmap identity.");
 
-        BeatmapResource osuResource = beatmap.Resources.SingleOrDefault(resource =>
+        BeatmapResource[] osuResources = beatmap.Resources.Where(resource =>
             resource.LogicalName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase) &&
             Path.GetFileName(resource.BlobPath).Equals(beatmap.Hash, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidDataException("The selected lazer difficulty has no matching .osu file usage.");
+            .ToArray();
+        if (osuResources.Length == 0)
+            throw new InvalidDataException("The selected lazer difficulty has no matching .osu file usage.");
+        if (osuResources.Length > 1)
+            throw new InvalidDataException("The selected lazer difficulty has multiple matching .osu file usages.");
+        BeatmapResource osuResource = osuResources[0];
         ValidateBlob(osuResource.BlobPath, beatmap.Hash);
 
         string directory = Path.Combine(materializedRoot, beatmap.Id.ToString("N"));
@@ -161,7 +166,25 @@ public sealed class LazerBeatmapResolver : ILazerBeatmapResolver
     {
         string normalized = logicalName.Replace('\\', '/');
         string leaf = Path.GetFileName(normalized);
-        return string.IsNullOrWhiteSpace(leaf) ? fallback : leaf;
+        if (string.IsNullOrWhiteSpace(leaf)) leaf = fallback;
+        char[] invalid = Path.GetInvalidFileNameChars();
+        leaf = string.Concat(leaf.Select(character => invalid.Contains(character) ? '_' : character));
+        if (OperatingSystem.IsWindows())
+        {
+            leaf = leaf.TrimEnd(' ', '.');
+            string stem = Path.GetFileNameWithoutExtension(leaf);
+            string[] reserved = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+            if (reserved.Contains(stem, StringComparer.OrdinalIgnoreCase)) leaf = "_" + leaf;
+        }
+        if (string.IsNullOrWhiteSpace(leaf)) leaf = fallback;
+        const int maximum_leaf_length = 180;
+        if (leaf.Length > maximum_leaf_length)
+        {
+            string extension = Path.GetExtension(leaf);
+            int stemLength = Math.Max(1, maximum_leaf_length - extension.Length);
+            leaf = Path.GetFileNameWithoutExtension(leaf)[..stemLength] + extension;
+        }
+        return leaf;
     }
 
     private static void ValidateBlob(string path, string expectedHash)

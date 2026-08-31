@@ -10,6 +10,11 @@ namespace HRandomPlus.Archives;
 
 public sealed class OsuArchive
 {
+    private const int MaximumArchiveEntries = 10_000;
+    private const long MaximumExpandedBytes = 8L * 1024 * 1024 * 1024;
+    private const long MaximumEntryBytes = 2L * 1024 * 1024 * 1024;
+    private const long MaximumBeatmapBytes = 64L * 1024 * 1024;
+
     public ArchiveReport Process(string inputPath, string outputPath, HRandomConfig config,
                                  IReadOnlyCollection<string> difficultyFilters, bool overwrite)
     {
@@ -35,7 +40,7 @@ public sealed class OsuArchive
             ExtractSafely(inputPath, extractRoot);
             var originalHashes = HashArchiveEntries(inputPath);
             var expected = new List<(OsuBeatmapDocument Original, string OutputRelativePath)>();
-            var processedOriginalPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var processedOriginalPaths = new HashSet<string>(StringComparer.Ordinal);
             var report = new ArchiveReport { Input = inputPath, Output = outputPath, Seed = seed };
 
             string[] osuFiles = Directory.GetFiles(extractRoot, "*.osu", SearchOption.AllDirectories);
@@ -45,7 +50,7 @@ public sealed class OsuArchive
             foreach (string osuFile in osuFiles)
             {
                 string relative = NormalizeRelative(Path.GetRelativePath(extractRoot, osuFile));
-                byte[] originalBytes = File.ReadAllBytes(osuFile);
+                byte[] originalBytes = ReadBeatmapFile(osuFile);
                 OsuBeatmapDocument document = OsuBeatmapDocument.Parse(relative, originalBytes);
                 if (document.Mode != 3 || !Matches(document, relative, difficultyFilters))
                     continue;
@@ -64,11 +69,11 @@ public sealed class OsuArchive
                     ? RenameDifficultyFile(relative, config.DifficultySuffix)
                     : relative;
                 string outputFile = ResolveInside(extractRoot, outputRelative);
-                if (!outputFile.Equals(osuFile, StringComparison.OrdinalIgnoreCase) && File.Exists(outputFile))
+                if (!outputFile.Equals(osuFile, FileSystemPathComparison) && File.Exists(outputFile))
                     throw new IOException($"El nombre de dificultad generado colisiona con otro archivo: {outputRelative}");
                 Directory.CreateDirectory(Path.GetDirectoryName(outputFile)!);
                 File.WriteAllBytes(outputFile, outputBytes);
-                if (!outputFile.Equals(osuFile, StringComparison.OrdinalIgnoreCase))
+                if (!outputFile.Equals(osuFile, FileSystemPathComparison))
                     File.Delete(osuFile);
 
                 expected.Add((OsuBeatmapDocument.Parse(relative, originalBytes), outputRelative));
@@ -132,17 +137,16 @@ public sealed class OsuArchive
                                         List<(OsuBeatmapDocument Original, string OutputRelativePath)> expected)
     {
         using var archive = ZipFile.OpenRead(archivePath);
+        ValidateArchiveLimits(archive);
         var outputHashes = archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name))
-            .ToDictionary(e => NormalizeRelative(e.FullName), HashEntry, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(e => NormalizeRelative(e.FullName), HashEntry, StringComparer.Ordinal);
 
         // Every resulting difficulty must remain parseable, including untouched non-mania maps.
         foreach (ZipArchiveEntry osuEntry in archive.Entries.Where(e =>
                      e.Name.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)))
         {
             using Stream osuStream = osuEntry.Open();
-            using var osuMemory = new MemoryStream();
-            osuStream.CopyTo(osuMemory);
-            _ = OsuBeatmapDocument.Parse(osuEntry.FullName, osuMemory.ToArray());
+            _ = OsuBeatmapDocument.Parse(osuEntry.FullName, ReadBeatmapEntry(osuEntry, osuStream));
         }
 
         foreach ((string path, string hash) in originalHashes)
@@ -158,9 +162,7 @@ public sealed class OsuArchive
             ZipArchiveEntry entry = archive.GetEntry(outputRelative.Replace('\\', '/'))
                 ?? throw new InvalidDataException($"Falta la dificultad generada: {outputRelative}");
             using Stream stream = entry.Open();
-            using var memory = new MemoryStream();
-            stream.CopyTo(memory);
-            OsuBeatmapDocument reparsed = OsuBeatmapDocument.Parse(outputRelative, memory.ToArray());
+            OsuBeatmapDocument reparsed = OsuBeatmapDocument.Parse(outputRelative, ReadBeatmapEntry(entry, stream));
             BeatmapValidator.ValidateTransformation(original, reparsed);
         }
     }
@@ -168,6 +170,8 @@ public sealed class OsuArchive
     private static void ExtractSafely(string archivePath, string destination)
     {
         using var archive = ZipFile.OpenRead(archivePath);
+        ValidateArchiveLimits(archive);
+        long totalWritten = 0;
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
             string relative = NormalizeRelative(entry.FullName);
@@ -178,15 +182,28 @@ public sealed class OsuArchive
                 continue;
             }
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            entry.ExtractToFile(target, overwrite: false);
+            using Stream input = entry.Open();
+            using FileStream output = new(target, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            byte[] buffer = new byte[81920];
+            long entryWritten = 0;
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                entryWritten += read;
+                totalWritten += read;
+                if (entryWritten > MaximumEntryBytes || totalWritten > MaximumExpandedBytes)
+                    throw new InvalidDataException("El OSZ excede los límites seguros de extracción.");
+                output.Write(buffer, 0, read);
+            }
         }
     }
 
     private static Dictionary<string, string> HashArchiveEntries(string archivePath)
     {
         using var archive = ZipFile.OpenRead(archivePath);
+        ValidateArchiveLimits(archive);
         return archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name))
-                      .ToDictionary(e => NormalizeRelative(e.FullName), HashEntry, StringComparer.OrdinalIgnoreCase);
+                      .ToDictionary(e => NormalizeRelative(e.FullName), HashEntry, StringComparer.Ordinal);
     }
 
     private static string HashEntry(ZipArchiveEntry entry)
@@ -196,14 +213,61 @@ public sealed class OsuArchive
         return Convert.ToHexString(sha.ComputeHash(stream));
     }
 
+    private static void ValidateArchiveLimits(ZipArchive archive)
+    {
+        if (archive.Entries.Count > MaximumArchiveEntries)
+            throw new InvalidDataException($"El OSZ contiene más de {MaximumArchiveEntries:N0} entradas.");
+        long total = 0;
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            if (entry.Length > MaximumEntryBytes)
+                throw new InvalidDataException($"La entrada '{entry.FullName}' supera el límite expandido de 2 GiB.");
+            try { total = checked(total + entry.Length); }
+            catch (OverflowException) { throw new InvalidDataException("El tamaño expandido declarado del OSZ no es válido."); }
+            if (total > MaximumExpandedBytes)
+                throw new InvalidDataException("El OSZ supera el límite expandido total de 8 GiB.");
+        }
+    }
+
+    private static byte[] ReadBeatmapFile(string path)
+    {
+        var info = new FileInfo(path);
+        if (info.Length > MaximumBeatmapBytes)
+            throw new InvalidDataException($"La dificultad '{Path.GetFileName(path)}' supera el límite de 64 MiB.");
+        return File.ReadAllBytes(path);
+    }
+
+    private static byte[] ReadBeatmapEntry(ZipArchiveEntry entry, Stream stream)
+    {
+        if (entry.Length > MaximumBeatmapBytes)
+            throw new InvalidDataException($"La dificultad '{entry.FullName}' supera el límite de 64 MiB.");
+        using var memory = new MemoryStream((int)entry.Length);
+        byte[] buffer = new byte[81920];
+        int read;
+        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            if (memory.Length + read > MaximumBeatmapBytes)
+                throw new InvalidDataException($"La dificultad '{entry.FullName}' supera el límite de 64 MiB.");
+            memory.Write(buffer, 0, read);
+        }
+        return memory.ToArray();
+    }
+
     private static string ResolveInside(string root, string relative)
     {
         string fullRoot = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
         string fullPath = Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
-        if (!fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!fullPath.StartsWith(fullRoot, comparison))
             throw new InvalidDataException($"Ruta insegura dentro del ZIP: {relative}");
         return fullPath;
     }
 
     private static string NormalizeRelative(string path) => path.Replace('\\', '/').TrimStart('/');
+
+    private static StringComparison FileSystemPathComparison => OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
 }

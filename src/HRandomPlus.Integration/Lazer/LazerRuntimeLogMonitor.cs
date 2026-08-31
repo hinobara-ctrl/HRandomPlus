@@ -10,6 +10,7 @@ public interface ILazerRuntimeLogMonitor
 
 public sealed class LazerRuntimeLogMonitor : ILazerRuntimeLogMonitor
 {
+    private readonly Decoder decoder = new UTF8Encoding(false, false).GetDecoder();
     private string? currentPath;
     private long position;
     private DateTime creationTimeUtc;
@@ -41,25 +42,34 @@ public sealed class LazerRuntimeLogMonitor : ILazerRuntimeLogMonitor
         creationTimeUtc = default;
         pending = string.Empty;
         current = null;
+        decoder.Reset();
     }
 
     private void Initialize(string path, FileInfo info)
     {
         currentPath = path;
         creationTimeUtc = info.CreationTimeUtc;
-        pending = string.Empty;
-        const int scan_limit = 2 * 1024 * 1024;
+        const int scan_block = 2 * 1024 * 1024;
+        const int maximum_initial_scan = 32 * 1024 * 1024;
         using FileStream stream = OpenShared(path);
-        long start = Math.Max(0, stream.Length - scan_limit);
-        stream.Position = start;
-        using var reader = new StreamReader(stream, Encoding.UTF8, true, leaveOpen: true);
-        string text = reader.ReadToEnd();
-        if (start > 0)
+        long scanLength = Math.Min(stream.Length, scan_block);
+        while (true)
         {
-            int firstBreak = text.IndexOf('\n');
-            text = firstBreak >= 0 ? text[(firstBreak + 1)..] : string.Empty;
+            pending = string.Empty;
+            current = null;
+            decoder.Reset();
+            long start = Math.Max(0, stream.Length - scanLength);
+            stream.Position = start;
+            string text = Decode(stream);
+            if (start > 0)
+            {
+                int firstBreak = text.IndexOf('\n');
+                text = firstBreak >= 0 ? text[(firstBreak + 1)..] : string.Empty;
+            }
+            ProcessText(text, info.LastWriteTimeUtc);
+            if (current is not null || start == 0 || scanLength >= maximum_initial_scan) break;
+            scanLength = Math.Min(maximum_initial_scan, scanLength + scan_block);
         }
-        current = LazerRuntimeLogParser.LastValid(SplitCompleteLines(text), info.LastWriteTimeUtc);
         position = stream.Length;
     }
 
@@ -67,9 +77,27 @@ public sealed class LazerRuntimeLogMonitor : ILazerRuntimeLogMonitor
     {
         using FileStream stream = OpenShared(path);
         stream.Position = position;
-        using var reader = new StreamReader(stream, Encoding.UTF8, true, leaveOpen: true);
-        string appended = reader.ReadToEnd();
+        string appended = Decode(stream);
         position = stream.Length;
+        ProcessText(appended, observedAt);
+    }
+
+    private string Decode(Stream stream)
+    {
+        var text = new StringBuilder();
+        byte[] bytes = new byte[8192];
+        char[] chars = new char[Encoding.UTF8.GetMaxCharCount(bytes.Length)];
+        int read;
+        while ((read = stream.Read(bytes, 0, bytes.Length)) > 0)
+        {
+            int count = decoder.GetChars(bytes, 0, read, chars, 0, flush: false);
+            text.Append(chars, 0, count);
+        }
+        return text.ToString();
+    }
+
+    private void ProcessText(string appended, DateTime observedAt)
+    {
         string combined = pending + appended;
         bool complete = combined.EndsWith('\n');
         string[] lines = combined.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
@@ -81,9 +109,6 @@ public sealed class LazerRuntimeLogMonitor : ILazerRuntimeLogMonitor
             if (parsed is not null) current = parsed;
         }
     }
-
-    private static IEnumerable<string> SplitCompleteLines(string text)
-        => text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
     private static FileStream OpenShared(string path)
         => File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

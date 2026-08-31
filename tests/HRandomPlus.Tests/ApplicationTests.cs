@@ -21,9 +21,29 @@ public class ApplicationTests
         Directory.CreateDirectory(root);
         try
         {
-            File.WriteAllText(Path.Combine(root, "config.json"), "{broken");
+            const string corrupt = "{broken";
+            File.WriteAllText(Path.Combine(root, "config.json"), corrupt);
             AppSettings settings = new SettingsStore(root).Load();
             Assert.Equal("H-Random", settings.LastProfile);
+            string backup = Assert.Single(Directory.GetFiles(root, "config.corrupt-*.json"));
+            Assert.Equal(corrupt, File.ReadAllText(backup));
+            _ = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "config.json")));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void TransientSettingsReadFailureDoesNotReplaceOriginal()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusSettings", Guid.NewGuid().ToString("N"));
+        string settingsPath = Path.Combine(root, "config.json");
+        Directory.CreateDirectory(settingsPath);
+        try
+        {
+            AppSettings settings = new SettingsStore(root).Load();
+            Assert.Equal("H-Random", settings.LastProfile);
+            Assert.True(Directory.Exists(settingsPath));
+            Assert.True(Directory.GetFiles(root, "config.corrupt-*.json").Length == 0);
         }
         finally { Directory.Delete(root, true); }
     }

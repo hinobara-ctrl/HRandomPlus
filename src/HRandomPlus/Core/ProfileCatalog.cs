@@ -285,28 +285,76 @@ public sealed class SettingsStore
                 Save(defaults);
                 return defaults;
             }
+
+            string json;
             try
             {
-                AppSettings settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Options) ?? new AppSettings();
-                if (ProfileSettingsMigration.Apply(settings)) Save(settings);
-                return settings;
+                json = File.ReadAllText(SettingsPath);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Log($"Configuración corrupta; se restauraron defaults: {ex.Message}");
-                var defaults = new AppSettings();
-                ProfileSettingsMigration.Apply(defaults);
-                Save(defaults);
-                return defaults;
+                Log($"No se pudo leer la configuración; se usarán defaults en memoria sin modificar el original: {ex.Message}");
+                return CreateDefaults();
             }
+
+            AppSettings settings;
+            try
+            {
+                settings = JsonSerializer.Deserialize<AppSettings>(json, Options) ?? throw new JsonException("The document contains null settings.");
+            }
+            catch (JsonException ex)
+            {
+                return RecoverCorruptSettings(ex);
+            }
+
+            if (ProfileSettingsMigration.Apply(settings))
+            {
+                try { Save(settings); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Log($"La configuración se migró sólo en memoria porque no pudo guardarse: {ex.Message}");
+                }
+            }
+            return settings;
         }
         catch (Exception ex)
         {
             // Settings are optional. A locked or read-only LocalAppData directory must
             // never prevent the UI from starting.
             Log($"No se pudo cargar la configuración; se usarán defaults en memoria: {ex.Message}");
-            return new AppSettings();
+            return CreateDefaults();
         }
+    }
+
+    private AppSettings RecoverCorruptSettings(JsonException error)
+    {
+        AppSettings defaults = CreateDefaults();
+        string backup = Path.Combine(DirectoryPath,
+            $"config.corrupt-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.Copy(SettingsPath, backup, overwrite: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"Configuración corrupta, pero no pudo preservarse; se usarán defaults en memoria sin sobrescribirla: {ex.Message}");
+            return defaults;
+        }
+
+        Log($"Configuración corrupta preservada en '{Path.GetFileName(backup)}'; se restauraron defaults: {error.Message}");
+        try { Save(defaults); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"No se pudieron guardar los defaults después de preservar la configuración corrupta: {ex.Message}");
+        }
+        return defaults;
+    }
+
+    private static AppSettings CreateDefaults()
+    {
+        var defaults = new AppSettings();
+        ProfileSettingsMigration.Apply(defaults);
+        return defaults;
     }
 
     public AppSettings LoadReadOnly()

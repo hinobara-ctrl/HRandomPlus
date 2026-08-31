@@ -67,6 +67,33 @@ public class LazerIntegrationTests
     }
 
     [Fact]
+    public void RuntimeMonitorPreservesUtf8CharacterSplitAcrossAppends()
+    {
+        string root = TempRoot();
+        string logs = Path.Combine(root, "logs");
+        Directory.CreateDirectory(logs);
+        string log = Path.Combine(logs, "runtime.log");
+        File.WriteAllBytes(log, Array.Empty<byte>());
+        var monitor = new LazerRuntimeLogMonitor();
+        LazerStorage storage = Storage(root, logs);
+        Assert.True(monitor.ReadCurrent(storage) is null);
+
+        const string display = "アーティスト - 日本語 (Mapper) [難しい]";
+        byte[] line = System.Text.Encoding.UTF8.GetBytes($"Game-wide working beatmap updated to {display}\n");
+        byte[] marker = System.Text.Encoding.UTF8.GetBytes("日");
+        int markerIndex = line.AsSpan().IndexOf(marker);
+        int split = markerIndex + 1;
+        using (FileStream stream = new(log, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+            stream.Write(line, 0, split);
+        Assert.True(monitor.ReadCurrent(storage) is null);
+        using (FileStream stream = new(log, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+            stream.Write(line, split, line.Length - split);
+
+        Assert.Equal(display, monitor.ReadCurrent(storage)!.DisplayName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void RuntimeMonitorHandlesLogTruncation()
     {
         string root = TempRoot();
@@ -146,6 +173,28 @@ public class LazerIntegrationTests
         LazerLogSelection? selection = new LazerRuntimeLogMonitor().ReadCurrent(Storage(root, logs));
 
         Assert.Equal("new", selection!.DisplayName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void RuntimeMonitorSearchesBackwardBeyondInitialTwoMiBWindow()
+    {
+        string root = TempRoot();
+        string logs = Path.Combine(root, "logs");
+        Directory.CreateDirectory(logs);
+        string log = Path.Combine(logs, "runtime.log");
+        const string display = "Older current selection 日本語";
+        using (var writer = new StreamWriter(log, append: false, new System.Text.UTF8Encoding(false)))
+        {
+            writer.WriteLine($"Game-wide working beatmap updated to {display}");
+            const string noise = "ordinary runtime noise that is not a selection";
+            for (int index = 0; index < 80_000; index++) writer.WriteLine(noise);
+        }
+        Assert.True(new FileInfo(log).Length > 2L * 1024 * 1024);
+
+        LazerLogSelection? selection = new LazerRuntimeLogMonitor().ReadCurrent(Storage(root, logs));
+
+        Assert.Equal(display, selection!.DisplayName);
         Directory.Delete(root, true);
     }
 
@@ -232,6 +281,61 @@ public class LazerIntegrationTests
     }
 
     [Fact]
+    public void ResolverReportsMultipleMatchingOsuFileUsages()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        byte[] osu = ValidBeatmap();
+        string hash = Convert.ToHexString(SHA256.HashData(osu)).ToLowerInvariant();
+        string blob = LazerBlobPath.GetFullPath(root, hash);
+        Directory.CreateDirectory(Path.GetDirectoryName(blob)!);
+        File.WriteAllBytes(blob, osu);
+        Guid id = Guid.NewGuid();
+        var beatmap = new LazerCatalogBeatmap(id, 0, 0, "Test", hash, "", "", "", "", "",
+            new[] { new BeatmapResource("first.osu", blob), new BeatmapResource("second.osu", blob) });
+        bool controlled = false;
+        try
+        {
+            _ = new LazerBeatmapResolver(new FakeCatalog(beatmap), Path.Combine(root, "out")).Resolve(
+                Storage(root, Path.Combine(root, "logs")),
+                new LazerLogSelection(id, "mania", null, DateTimeOffset.UtcNow));
+        }
+        catch (InvalidDataException ex)
+        {
+            controlled = ex.Message.Contains("multiple", StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.True(controlled);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void ResolverSanitizesOnlyTemporaryLeafNameForCurrentFilesystem()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        byte[] osu = ValidBeatmap();
+        string hash = Convert.ToHexString(SHA256.HashData(osu)).ToLowerInvariant();
+        string blob = LazerBlobPath.GetFullPath(root, hash);
+        Directory.CreateDirectory(Path.GetDirectoryName(blob)!);
+        File.WriteAllBytes(blob, osu);
+        char invalid = Path.GetInvalidFileNameChars().First(character => character is not '/' and not '\\');
+        string logicalName = $"logical{invalid}name.osu";
+        Guid id = Guid.NewGuid();
+        var beatmap = new LazerCatalogBeatmap(id, 0, 0, "Test", hash, "", "", "", "", "",
+            new[] { new BeatmapResource(logicalName, blob) });
+
+        LazerResolution result = new LazerBeatmapResolver(new FakeCatalog(beatmap), Path.Combine(root, "out")).Resolve(
+            Storage(root, Path.Combine(root, "logs")),
+            new LazerLogSelection(id, "mania", null, DateTimeOffset.UtcNow));
+
+        Assert.True(File.Exists(result.Selection.NativePath));
+        Assert.True(!result.Selection.Beatmap.OsuFileName.Contains(invalid));
+        Assert.Equal(logicalName, result.Selection.LazerContext!.SetResources[0].LogicalName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void ArbitrationSwitchesToMostRecentlyChangedSource()
     {
         var stable = new MutableSource(Result("stable", BeatmapDetectionSource.WindowsMemory, DateTimeOffset.UtcNow));
@@ -240,6 +344,33 @@ public class LazerIntegrationTests
         Assert.Equal(BeatmapDetectionSource.WindowsMemory, source.GetCurrentAsync().Result.DetectionSource);
         lazer.Result = Result("lazer-2", BeatmapDetectionSource.Lazer, DateTimeOffset.UtcNow.AddSeconds(2));
         Assert.Equal(BeatmapDetectionSource.Lazer, source.GetCurrentAsync().Result.DetectionSource);
+    }
+
+    [Fact]
+    public void ArbitrationKeepsValidSourceWhenPeerThrowsUnexpectedly()
+    {
+        BeatmapSourceResult valid = Result("lazer", BeatmapDetectionSource.Lazer, DateTimeOffset.UtcNow);
+        var source = new ArbitratingBeatmapSource(new ThrowingSource(new IOException("memory failed")), new MutableSource(valid));
+
+        BeatmapSourceResult result = source.GetCurrentAsync().Result;
+
+        Assert.True(result.Success);
+        Assert.Equal(BeatmapDetectionSource.Lazer, result.DetectionSource);
+        Assert.Contains("osu!stable source failed unexpectedly", result.Status);
+        Assert.Contains("memory failed", result.Status);
+    }
+
+    [Fact]
+    public void ArbitrationDoesNotAbsorbCallerCancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var source = new ArbitratingBeatmapSource(new CancelledSource(),
+            new MutableSource(Result("lazer", BeatmapDetectionSource.Lazer, DateTimeOffset.UtcNow)));
+        bool cancelled = false;
+        try { _ = source.GetCurrentAsync(cancellation.Token).GetAwaiter().GetResult(); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Assert.True(cancelled);
     }
 
     [Fact]
@@ -296,6 +427,28 @@ public class LazerIntegrationTests
         _ = source.GetCurrentAsync().Result;
 
         Assert.Equal(2, resolver.Calls);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void ClosingAndReopeningLazerInvalidatesSameStorageSession()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        var storage = new LazerStorage(root, Path.Combine(root, "client.realm"), Path.Combine(root, "files"), Path.Combine(root, "logs"));
+        var detector = new MutableLazerProcessDetector(Path.Combine(root, "osu!"));
+        var monitor = new MutableLazerMonitor(new LazerLogSelection(Guid.NewGuid(), "mania", "same", DateTimeOffset.UtcNow));
+        var resolver = new CountingLazerResolver();
+        var source = new LazerCurrentBeatmapSource(new FixedStorageDiscovery(storage), detector, monitor, resolver);
+
+        Assert.True(source.GetCurrentAsync().Result.Success);
+        detector.Executable = null;
+        Assert.True(!source.GetCurrentAsync().Result.IsAvailable);
+        detector.Executable = Path.Combine(root, "osu!");
+        Assert.True(source.GetCurrentAsync().Result.Success);
+
+        Assert.Equal(2, resolver.Calls);
+        Assert.True(monitor.ResetCalls >= 1);
         Directory.Delete(root, true);
     }
 
@@ -467,6 +620,18 @@ public class LazerIntegrationTests
         public Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default) => Task.FromResult(Result);
     }
 
+    private sealed class ThrowingSource(Exception exception) : IBeatmapSource
+    {
+        public Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
+            => throw exception;
+    }
+
+    private sealed class CancelledSource : IBeatmapSource
+    {
+        public Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.FromCanceled<BeatmapSourceResult>(cancellationToken);
+    }
+
     private sealed class CapturingLauncher : IExternalFileLauncher
     {
         public string? Path { get; private set; }
@@ -488,11 +653,18 @@ public class LazerIntegrationTests
         public string? FindExecutablePath() => Path.Combine(root, "osu!");
     }
 
+    private sealed class MutableLazerProcessDetector(string? executable) : ILazerProcessDetector
+    {
+        public string? Executable { get; set; } = executable;
+        public string? FindExecutablePath() => Executable;
+    }
+
     private sealed class MutableLazerMonitor(LazerLogSelection? selection) : ILazerRuntimeLogMonitor
     {
         public LazerLogSelection? Selection { get; set; } = selection;
+        public int ResetCalls { get; private set; }
         public LazerLogSelection? ReadCurrent(LazerStorage storage) => Selection;
-        public void Reset() { }
+        public void Reset() => ResetCalls++;
     }
 
     private sealed class CountingLazerResolver : ILazerBeatmapResolver

@@ -47,6 +47,7 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource, ILazerResolution
     private string? lastDisplay;
     private DateTimeOffset? lastObservedAt;
     private BeatmapSourceResult? cached;
+    private bool processWasAvailable;
 
     public LazerCurrentBeatmapSource(ILazerStorageDiscovery? discovery = null,
         ILazerProcessDetector? processDetector = null, ILazerRuntimeLogMonitor? monitor = null,
@@ -65,7 +66,12 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource, ILazerResolution
     {
         string? executable = processDetector.FindExecutablePath();
         if (executable is null)
+        {
+            if (processWasAvailable) ResetSession();
+            processWasAvailable = false;
             return BeatmapSourceResult.Unavailable("osu!lazer not detected");
+        }
+        processWasAvailable = true;
 
         if (storage is null || DateTimeOffset.UtcNow >= nextDiscovery)
         {
@@ -116,6 +122,14 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource, ILazerResolution
         lastGuid = null;
         lastDisplay = null;
         lastObservedAt = null;
+    }
+
+    private void ResetSession()
+    {
+        storage = null;
+        nextDiscovery = default;
+        monitor.Reset();
+        InvalidateLazerResolution();
     }
 
     private static IEnumerable<string> PortableStorageRoots(string executable)

@@ -8,6 +8,7 @@
 - `PROFILE_SYSTEM_DESIGN.md` — active profile persistence and interchange design.
 - `LINUX_IMPORT_AB_TEST.md` — established osu!stable/Wine import behavior and real-machine procedure.
 - `HARDENING_v0.2.1.md` — directed v0.2.1 fixes, evidence and final classifications.
+- `LINUX_POST_AUDIT_TESTS_v0.2.1.md` — owner-run Linux checks for the post-audit corrections.
 - `RELEASE_NOTES_v0.2.1-playtest.md` — current candidate notes.
 
 ## Historical / research

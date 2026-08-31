@@ -39,8 +39,8 @@ public sealed class SystemProcessRunner : IProcessRunner
             using var process = new Process { StartInfo = startInfo };
             if (!process.Start())
                 return new ProcessRunResult(false, false, null, "", "", "The process could not be started.");
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
+            Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+            Task<string> stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(request.Timeout);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
             try
@@ -53,6 +53,14 @@ public sealed class SystemProcessRunner : IProcessRunner
                 await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
                 return new ProcessRunResult(true, true, null, await stdout.ConfigureAwait(false),
                     await stderr.ConfigureAwait(false), "The process timed out.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); } catch { }
+                cancellationToken.ThrowIfCancellationRequested();
+                throw;
             }
 
             return new ProcessRunResult(true, false, process.ExitCode, await stdout.ConfigureAwait(false),
