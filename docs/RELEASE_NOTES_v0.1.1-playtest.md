@@ -1,23 +1,23 @@
 # HRandomPlus v0.1.1-playtest
 
-This is a conservative packaging update for osu!stable. It does not change randomization, beatmap detection, tosu integration, Wine importing, profiles, configuration defaults or UI behavior.
+Esta es una actualización conservadora de empaquetado para osu!stable. No cambia la randomización, detección de beatmaps, integración con tosu, importación mediante Wine, perfiles, configuración predeterminada ni comportamiento de la UI.
 
-## Distribution
+## Distribución
 
-- `HRandomPlus-v0.1.1-playtest-windows-x64.zip` and `HRandomPlus-v0.1.1-playtest-linux-x64.zip` are the recommended self-contained downloads and require no separate .NET installation.
-- `HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip` and `HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip` are optional smaller downloads. They require .NET 8 x64 Runtime and reduce download size by approximately 72% on Windows and 76% on Linux in the controlled study.
-- The Linux x64 framework-dependent build passed its final smoke test on a real Linux installation with .NET 8 x64 Runtime.
-- Debug symbols, tests, build files, caches and temporary files are excluded from binary ZIPs.
-- Single-file payload compression, trimming, invariant globalization and Avalonia backend removal were evaluated but not adopted because their measured benefit did not justify their runtime or compatibility cost.
+- `HRandomPlus-v0.1.1-playtest-windows-x64.zip` y `HRandomPlus-v0.1.1-playtest-linux-x64.zip` son las descargas autocontenidas recomendadas y no requieren una instalación separada de .NET.
+- `HRandomPlus-v0.1.1-playtest-windows-x64-framework-dependent.zip` y `HRandomPlus-v0.1.1-playtest-linux-x64-framework-dependent.zip` son descargas opcionales más pequeñas. Requieren .NET 8 x64 Runtime y reducen la descarga aproximadamente un 72 % en Windows y un 76 % en Linux según el estudio controlado.
+- La build Linux x64 dependiente del framework aprobó su smoke test final en una instalación Linux real con .NET 8 x64 Runtime.
+- Los símbolos de depuración, pruebas, archivos de compilación, cachés y archivos temporales se excluyen de los ZIP binarios.
+- Se evaluaron la compresión de payload de archivo único, trimming, globalización invariante y eliminación de backends de Avalonia, pero no se adoptaron porque el beneficio medido no justificaba su costo de ejecución o compatibilidad.
 
-Full measurements and decisions are recorded in `docs/optimization-v0.1.1.md`.
+Las mediciones y decisiones completas están registradas en `docs/optimization-v0.1.1.md`.
 
-## Licensing and source
+## Licencias y fuentes
 
-HRandomPlus remains `GPL-3.0-or-later`. Third-party components retain their own licenses and notices. The release set includes the exact HRandomPlus source, the exact upstream GPL source snapshot required by the Windows memory-reader dependencies, and `SHA256SUMS.txt`.
+HRandomPlus permanece bajo `GPL-3.0-or-later`. Los componentes de terceros conservan sus licencias y avisos. El conjunto de release incluye las fuentes exactas de HRandomPlus, el snapshot exacto de fuentes GPL upstream requerido por las dependencias de lectura de memoria en Windows y `SHA256SUMS.txt`.
 
-Self-contained ZIPs redistribute .NET 8 and include the applicable runtime license and notices. Framework-dependent ZIPs require an independently installed .NET 8 runtime and therefore do not include .NET runtime license files; all other applicable notices remain included.
+Los ZIP autocontenidos redistribuyen .NET 8 e incluyen la licencia y avisos aplicables del runtime. Los ZIP dependientes del framework requieren un runtime .NET 8 instalado por separado y, por ello, no incluyen sus archivos de licencia; todos los demás avisos aplicables siguen incluidos.
 
-## Known scope
+## Alcance conocido
 
-This release supports osu!stable. osu!lazer remains reserved for v0.2.0.
+Esta release admite osu!stable. osu!lazer queda reservado para v0.2.0.

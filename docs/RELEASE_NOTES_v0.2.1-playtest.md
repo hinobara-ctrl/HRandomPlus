@@ -1,35 +1,35 @@
 # HRandomPlus v0.2.1-playtest
 
-This is a focused correctness, robustness and reproducibility update to v0.2.0. It does not change H-Random, S-Random, Custom, seeds, profiles or deterministic output.
+Esta es una actualización enfocada en corrección, robustez y reproducibilidad sobre v0.2.0. No cambia H-Random, S-Random, Custom, seeds, perfiles ni el output determinista.
 
-## Fixed
+## Corregido
 
-- Refreshes the current lazer map after a new runtime selection event for the same GUID/name and after a successful import, avoiding stale Realm hash/blob reuse.
-- Selects the newest valid lazer runtime log instead of preferring `runtime.log` by filename.
-- Disposes discarded osu!stable process handles on Windows.
-- Protects Wine-side copy paths containing shell metacharacters, spaces, apostrophes, `!`, accents and Unicode.
-- Stops lazer import with a clear error when the referenced main audio blob is missing.
-- Preserves resources whose ZIP names differ only by letter case.
+- Actualiza el mapa actual de lazer tras un evento nuevo de selección con el mismo GUID/nombre y después de una importación correcta, evitando reutilizar un hash/blob Realm obsoleto.
+- Selecciona el runtime log válido más reciente de lazer en vez de preferir `runtime.log` por nombre.
+- Libera los handles de procesos descartados de osu!stable en Windows.
+- Protege las rutas de copia mediante Wine que contienen metacaracteres de shell, espacios, apóstrofes, `!`, acentos y Unicode.
+- Detiene la importación de lazer con un error claro cuando falta el blob de audio principal referenciado.
+- Conserva recursos cuyos nombres ZIP solo difieren por mayúsculas.
 
-## Release hardening
+## Endurecimiento de release
 
-- Runs the automated suite on Windows and Ubuntu.
-- Pins existing GitHub Actions major versions to exact release commits.
-- Commits NuGet lock files and restores CI dependencies in locked mode.
-- Ignores narrowly scoped local lazer Realm/runtime data.
-- Adds a current/historical documentation index and aligns stable-only manual-selection wording.
+- Ejecuta la suite automatizada en Windows y Ubuntu.
+- Fija las versiones mayores existentes de GitHub Actions a commits exactos de release.
+- Versiona lockfiles de NuGet y restaura dependencias de CI en modo bloqueado.
+- Ignora con patrones estrechos los datos locales Realm/runtime de lazer.
+- Añade un índice de documentación actual/histórica y alinea la descripción de selección manual exclusiva de stable.
 
-## Post-audit reliability
+## Fiabilidad posterior a la auditoría
 
-- Preserves split Unicode characters while tailing lazer logs and performs a bounded backward startup search beyond the final 2 MiB.
-- Recovers cleanly when lazer closes and reopens on the same storage, and tolerates failure of one automatic beatmap source when another remains valid.
-- Cancels helper process trees without changing the existing timeout contract.
-- Preserves `config.json` on transient read failures and backs up malformed JSON before restoring defaults.
-- Handles duplicate Realm file usages and filesystem-specific temporary filenames with controlled diagnostics.
-- Adds bounded streamed `.osz` extraction and consistent OS-aware path/case handling across extraction, hashing and validation.
+- Conserva caracteres Unicode divididos al seguir logs de lazer y realiza al iniciar una búsqueda hacia atrás acotada más allá de los últimos 2 MiB.
+- Se recupera correctamente cuando lazer se cierra y reabre sobre el mismo almacenamiento, y tolera el fallo de una fuente automática si otra sigue siendo válida.
+- Cancela árboles de procesos auxiliares sin cambiar el contrato existente de timeout.
+- Conserva `config.json` ante fallos transitorios de lectura y respalda JSON malformado antes de restaurar defaults.
+- Maneja usos duplicados de archivos Realm y nombres temporales específicos del filesystem con diagnósticos controlados.
+- Añade extracción de `.osz` por streaming y acotada, además de manejo consistente de rutas/mayúsculas según el SO en extracción, hashing y validación.
 
-The complete automated suite now contains 146 passing tests. The small set of real Linux platform confirmations remains owner-run and is documented separately.
+La suite automatizada completa contiene ahora 146 pruebas aprobadas. El pequeño conjunto de confirmaciones de plataforma en Linux real queda a cargo del propietario y está documentado por separado.
 
-Custom `storage.ini` was already verified on real Windows and Linux. Linux manual regression checks for the changed Wine/import paths remain an owner-run release-candidate step.
+El `storage.ini` personalizado ya fue verificado en Windows y Linux reales. Las comprobaciones manuales de regresión en Linux para las rutas modificadas de Wine/importación siguen siendo un paso del candidato a cargo del propietario.
 
-HRandomPlus remains `GPL-3.0-or-later`. No dependency or license model changed; existing third-party notices and corresponding-source requirements remain in force.
+HRandomPlus permanece bajo `GPL-3.0-or-later`. No cambió ninguna dependencia ni el modelo de licencias; los avisos de terceros y requisitos de fuentes correspondientes existentes siguen vigentes.

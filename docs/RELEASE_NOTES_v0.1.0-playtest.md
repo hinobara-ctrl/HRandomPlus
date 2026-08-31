@@ -1,41 +1,41 @@
 # HRandomPlus v0.1.0-playtest
 
-First playtest distribution for osu!stable.
+Primera distribución de playtest para osu!stable.
 
-## Supported platforms
+## Plataformas compatibles
 
-- osu!stable on Windows x64.
-- osu!stable on Linux x64 through osu-winello, Wine and tosu.
-- osu!lazer is **not supported**.
+- osu!stable en Windows x64.
+- osu!stable en Linux x64 mediante osu-winello, Wine y tosu.
+- osu!lazer **no es compatible**.
 
-## Included features
+## Funciones incluidas
 
-- Protected H-Random and S-Random presets plus one persistent, resettable Custom profile.
-- Personal profiles with stable GUIDs, descriptions and reproducible seeds.
-- UTF-8 `.hrp-profile.json` import/export with validation, preview, conflict handling and Windows/Linux compatibility.
-- Whole-map and selected-range processing.
-- Long-note protection and output validation.
-- Automatic selection plus manual `.osu` fallback.
-- Unique difficulty version and filename on repeated generation.
-- Linux Wine-side import with safe native fallback.
-- Editable BPM-to-millisecond snap reference from 1/1 through 1/64.
+- Presets protegidos H-Random y S-Random más un perfil Custom persistente y restablecible.
+- Perfiles personales con GUID estables, descripciones y seeds reproducibles.
+- Importación/exportación UTF-8 `.hrp-profile.json` con validación, vista previa, resolución de conflictos y compatibilidad Windows/Linux.
+- Procesamiento del mapa completo o de un rango seleccionado.
+- Protección de long notes y validación del output.
+- Selección automática más fallback manual de `.osu`.
+- Versión de dificultad y nombre de archivo únicos al generar repetidamente.
+- Importación mediante Wine en Linux con fallback nativo seguro.
+- Referencia editable de BPM a milisegundos para snaps de 1/1 a 1/64.
 
-Legacy profile settings migrate automatically. The last historical personal profile named Custom becomes the persistent Custom slot; remaining profiles are preserved with unique names and assigned GUIDs.
+La configuración antigua de perfiles se migra automáticamente. El último perfil personal histórico llamado Custom pasa a ser el espacio Custom persistente; los perfiles restantes se conservan con nombres únicos y GUID asignados.
 
-## Corrected source status
+## Estado de fuente corregido
 
-The status formatter previously assumed every automatic selection came from tosu. Detection itself was always correct; only the displayed origin was wrong.
+El formateador de estado suponía anteriormente que toda selección automática provenía de tosu. La detección siempre fue correcta; solo era erróneo el origen mostrado.
 
-- Windows now shows `Beatmap detected automatically from osu!stable`.
-- Linux continues to show `Beatmap detected automatically by tosu`.
-- Manual selection remains explicitly differentiated.
-- A Windows-specific regression test covers this behavior.
+- Windows ahora muestra `Beatmap detected automatically from osu!stable`.
+- Linux sigue mostrando `Beatmap detected automatically by tosu`.
+- La selección manual permanece diferenciada explícitamente.
+- Una prueba de regresión específica de Windows cubre este comportamiento.
 
-## Linux requirements
+## Requisitos de Linux
 
 - osu-winello.
-- tosu running in the same Wine environment as osu!stable.
-- Launch through `osu-wine --tosu`.
+- tosu ejecutándose en el mismo entorno Wine que osu!stable.
+- Inicio mediante `osu-wine --tosu`.
 
 ## Artifacts
 
@@ -45,16 +45,16 @@ The status formatter previously assumed every automatic selection came from tosu
 - `HRandomPlus-v0.1.0-playtest-gpl-source.zip`
 - `SHA256SUMS.txt`
 
-Verify downloads against `SHA256SUMS.txt`. GitHub Actions artifacts are temporary; assets attached to the tagged GitHub Release are the stable downloads.
+Verifica las descargas mediante `SHA256SUMS.txt`. Los artifacts de GitHub Actions son temporales; los assets adjuntos a la GitHub Release etiquetada son las descargas estables.
 
-## Licenses and source
+## Licencias y fuentes
 
-- HRandomPlus is distributed under `GPL-3.0-or-later`; the complete license is included as the root `LICENSE` and inside each binary package.
-- The Windows build incorporates `OsuMemoryDataProvider 0.12.2` and `ProcessMemoryDataFinder 0.10.2`, both declared `GPL-3.0-or-later` and embedded in the single executable.
-- Third-party components retain their own licenses. Each platform ZIP contains `THIRD_PARTY_NOTICES.md` and only the license/notice files applicable to that build.
-- `HRandomPlus-v0.1.0-playtest-source.zip` contains the HRandomPlus source corresponding to the candidate binaries.
-- `HRandomPlus-v0.1.0-playtest-gpl-source.zip` contains the complete ProcessMemoryDataFinder upstream snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`. Tags `osu_v0.12.2` and `process_v0.10.2` both resolve to that commit.
+- HRandomPlus se distribuye bajo `GPL-3.0-or-later`; la licencia completa se incluye como `LICENSE` raíz y dentro de cada paquete binario.
+- La build de Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, ambos declarados `GPL-3.0-or-later` e integrados en el ejecutable único.
+- Los componentes de terceros conservan sus propias licencias. Cada ZIP de plataforma contiene `THIRD_PARTY_NOTICES.md` y únicamente los archivos de licencia/aviso aplicables a esa build.
+- `HRandomPlus-v0.1.0-playtest-source.zip` contiene las fuentes de HRandomPlus correspondientes a los binarios candidatos.
+- `HRandomPlus-v0.1.0-playtest-gpl-source.zip` contiene el snapshot upstream completo de ProcessMemoryDataFinder en el commit `122dd102fe272de30471cf1f317805cb49ac23a4`. Los tags `osu_v0.12.2` y `process_v0.10.2` resuelven a ese commit.
 
-See `THIRD_PARTY_NOTICES.md`, `docs/DEPENDENCY_LICENSE_AUDIT.md` and `docs/GPL_SOURCE_MANIFEST.md` for the technical audit and exact source mapping. The Windows binary, both corresponding-source archives and `SHA256SUMS.txt` must be published together.
+Consulta `THIRD_PARTY_NOTICES.md`, `docs/DEPENDENCY_LICENSE_AUDIT.md` y `docs/GPL_SOURCE_MANIFEST.md` para la auditoría técnica y la correspondencia exacta de fuentes. El binario Windows, ambos archivos de fuentes correspondientes y `SHA256SUMS.txt` deben publicarse juntos.
 
-**WINDOWS RELEASE READY:** HRandomPlus and its linked GPL memory components are distributed under `GPL-3.0-or-later`; exact corresponding source and all applicable third-party notices accompany the candidate.
+**RELEASE DE WINDOWS LISTA:** HRandomPlus y sus componentes GPL enlazados de lectura de memoria se distribuyen bajo `GPL-3.0-or-later`; las fuentes correspondientes exactas y todos los avisos de terceros aplicables acompañan al candidato.

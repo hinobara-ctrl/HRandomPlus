@@ -1,21 +1,22 @@
-# Documentation index
+# Índice de documentación
 
-## Current
+## Documentación actual
 
-- `LAZER_IMPLEMENTATION.md` — current lazer detection, resolution, import and smoke-test contract.
-- `DEPENDENCY_LICENSE_AUDIT.md` — current distribution dependency and license inventory.
-- `GPL_SOURCE_MANIFEST.md` — exact corresponding-source mapping for releases.
-- `PROFILE_SYSTEM_DESIGN.md` — active profile persistence and interchange design.
-- `LINUX_IMPORT_AB_TEST.md` — established osu!stable/Wine import behavior and real-machine procedure.
-- `HARDENING_v0.2.1.md` — directed v0.2.1 fixes, evidence and final classifications.
-- `LINUX_POST_AUDIT_TESTS_v0.2.1.md` — owner-run Linux checks for the post-audit corrections.
-- `RELEASE_NOTES_v0.2.1-playtest.md` — current candidate notes.
+- `LAZER_IMPLEMENTATION.md` — contrato actual de detección, resolución, importación y smoke tests de lazer.
+- `DEPENDENCY_LICENSE_AUDIT.md` — inventario actual de dependencias y licencias de distribución.
+- `GPL_SOURCE_MANIFEST.md` — correspondencia exacta de fuentes para las releases.
+- `PROFILE_SYSTEM_DESIGN.md` — diseño activo de persistencia e intercambio de perfiles.
+- `LINUX_IMPORT_AB_TEST.md` — comportamiento establecido de importación osu!stable/Wine y procedimiento en máquina real.
+- `HARDENING_v0.2.1.md` — correcciones dirigidas de v0.2.1, evidencia y clasificaciones finales.
+- `LINUX_POST_AUDIT_TESTS_v0.2.1.md` — comprobaciones Linux de las correcciones posteriores a la auditoría, a cargo del propietario.
+- `RELEASE_NOTES_v0.2.1-playtest.md` — notas del candidato actual.
+- `ESTUDIO_TAMANO_Y_OPTIMIZACION_v0.2.1.md` — evolución del tamaño, mediciones actuales y oportunidades de optimización priorizadas.
 
-## Historical / research
+## Histórica / investigación
 
-- `PRE_LAZER_STATUS.md` — pre-lazer closure snapshot.
-- `optimization-v0.1.1.md` — v0.1.1 measurement and optimization study.
-- `RELEASE_READINESS_v0.1.0-playtest.md` — historical v0.1.0 readiness record.
-- `RELEASE_NOTES_v0.1.0-playtest.md`, `RELEASE_NOTES_v0.1.1-playtest.md`, and `RELEASE_NOTES_v0.2.0-playtest.md` — previous release notes.
+- `PRE_LAZER_STATUS.md` — snapshot del cierre pre-lazer.
+- `optimization-v0.1.1.md` — estudio de medición y optimización de v0.1.1.
+- `RELEASE_READINESS_v0.1.0-playtest.md` — registro histórico de preparación de v0.1.0.
+- `RELEASE_NOTES_v0.1.0-playtest.md`, `RELEASE_NOTES_v0.1.1-playtest.md` y `RELEASE_NOTES_v0.2.0-playtest.md` — notas de releases anteriores.
 
-Historical files are retained as evidence and are not the current release checklist.
+Los archivos históricos se conservan como evidencia y no constituyen el checklist de la release actual.

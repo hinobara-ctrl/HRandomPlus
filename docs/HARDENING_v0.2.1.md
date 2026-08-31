@@ -1,57 +1,57 @@
-# v0.2.1 directed hardening
+# Endurecimiento dirigido de v0.2.1
 
-## Root cause
+## Causa raíz
 
-`LazerCurrentBeatmapSource` keyed its cached Realm resolution only by beatmap GUID and display name. A fresh runtime event for a reimported map could therefore retain the old Realm hash/blob. In addition, a successful import did not explicitly invalidate that resolution when lazer emitted no useful selection event.
+`LazerCurrentBeatmapSource` identificaba su resolución Realm en caché únicamente mediante el GUID y el nombre visible del beatmap. Por ello, un evento nuevo de ejecución para un mapa reimportado podía conservar el hash/blob anterior de Realm. Además, una importación correcta no invalidaba explícitamente esa resolución cuando lazer no emitía un evento útil de selección.
 
-The cache now includes the runtime observation revision. A new event forces one Realm resolution even when GUID and display name are unchanged, while an unchanged event remains cached. A successful lazer import explicitly invalidates the current resolution once.
+La caché ahora incluye la revisión de observación en ejecución. Un evento nuevo fuerza una resolución de Realm aunque el GUID y el nombre visible no cambien, mientras que un evento sin cambios permanece en caché. Una importación correcta en lazer invalida explícitamente la resolución actual una vez.
 
-## Final classifications
+## Clasificaciones finales
 
-| Finding | Classification | Result |
+| Hallazgo | Clasificación | Resultado |
 |---|---|---|
-| Updated/imported lazer map remains stale | FIXED | Event revision participates in the cache key; successful import invalidates once. |
-| Active `runtime.log` selection | FIXED | All valid log names compete by `LastWriteTimeUtc` through one selection method. |
-| Windows stable `Process` lifetime | FIXED | Every inspected process not returned to the caller is disposed; returned ownership remains with the caller. |
-| Wine `cmd` metacharacters | FIXED | Paths are supplied through environment variables, never inserted into the interpreted command text; delayed expansion is off. |
-| Missing lazer resources | FIXED | Missing referenced main audio fails with a named error; nonessential visual/hitsound resources remain optional. |
-| ZIP case sensitivity | FIXED | Case-distinct resource names are retained with `StringComparer.Ordinal`. |
-| Linux CI | FIXED | The full test job runs on `windows-latest` and `ubuntu-latest`. |
-| Manual selection documentation | FIXED | Documentation matches the current UI: stable-only, disabled while lazer is active. |
-| Custom `storage.ini` | ACCEPTED AS-IS | Previously passed on real Windows and Linux; no storage-discovery behavior changed. |
-| GitHub Actions references | FIXED | Existing major versions are pinned to their exact release commits. |
-| NuGet lock files | FIXED | Relevant projects use committed lock files and CI restores in locked mode. |
-| Lazer data ignore rules | FIXED | Narrow patterns cover Realm/runtime data without excluding broad fixture types. |
-| Diagnostic path privacy | FUTURE | Full local paths remain useful during playtesting; redaction belongs with a future logging-level design. |
-| Textual Realm fallback performance | FUTURE | Benchmark only if users report slow selection; current cache limits it to selection changes. |
+| El mapa actualizado/importado de lazer queda obsoleto | CORREGIDO | La revisión del evento participa en la clave de caché; una importación correcta invalida una vez. |
+| Selección del `runtime.log` activo | CORREGIDO | Todos los nombres de log válidos compiten mediante `LastWriteTimeUtc` en un único método de selección. |
+| Ciclo de vida de `Process` para stable en Windows | CORREGIDO | Todo proceso inspeccionado que no se devuelve al llamador se libera; la propiedad del proceso devuelto permanece en el llamador. |
+| Metacaracteres de `cmd` en Wine | CORREGIDO | Las rutas se entregan mediante variables de entorno y nunca se insertan en el texto interpretado del comando; la expansión retardada está desactivada. |
+| Recursos de lazer ausentes | CORREGIDO | La ausencia del audio principal referenciado produce un error identificable; los recursos visuales/hitsounds no esenciales siguen siendo opcionales. |
+| Sensibilidad a mayúsculas del ZIP | CORREGIDO | Los recursos cuyos nombres difieren por mayúsculas se conservan con `StringComparer.Ordinal`. |
+| CI de Linux | CORREGIDO | El job completo de pruebas se ejecuta en `windows-latest` y `ubuntu-latest`. |
+| Documentación de selección manual | CORREGIDO | La documentación coincide con la UI actual: solo stable y desactivada mientras lazer está activo. |
+| `storage.ini` personalizado | ACEPTADO SIN CAMBIOS | Ya fue aprobado en Windows y Linux reales; no cambió el descubrimiento de almacenamiento. |
+| Referencias de GitHub Actions | CORREGIDO | Las versiones mayores existentes están fijadas a sus commits exactos de release. |
+| Lockfiles de NuGet | CORREGIDO | Los proyectos relevantes usan lockfiles versionados y CI restaura en modo bloqueado. |
+| Reglas para ignorar datos de lazer | CORREGIDO | Patrones estrechos cubren datos Realm/runtime sin excluir tipos amplios de fixtures. |
+| Privacidad de rutas de diagnóstico | FUTURO | Las rutas locales completas siguen siendo útiles durante el playtest; su ocultación corresponde a un futuro diseño de niveles de log. |
+| Rendimiento del fallback textual de Realm | FUTURO | Medir solo si los usuarios informan selección lenta; la caché actual lo limita a cambios de selección. |
 
-## Post-audit hardening
+## Endurecimiento posterior a la auditoría
 
-| Finding | Classification | Result |
+| Hallazgo | Clasificación | Resultado |
 |---|---|---|
-| UTF-8 split between incremental runtime-log reads | FIXED | One persistent decoder now preserves partial multibyte sequences across appends. |
-| One beatmap source throws while its peer succeeds | FIXED | Arbitration retains the valid result, reports the peer failure, and never absorbs caller cancellation. |
-| Caller cancels a running helper process | FIXED | The process tree is killed best-effort, output is drained, and `OperationCanceledException` is rethrown; timeout behavior is unchanged. |
-| Transient or corrupt `config.json` read | FIXED | Transient I/O/access failures leave the original untouched; malformed JSON is backed up before defaults are persisted. |
-| Unbounded `.osz` extraction | FIXED | Entry count, individual entry size, beatmap size, and total expanded size have generous explicit limits plus streamed byte accounting. |
-| lazer close/reopen with the same storage | FIXED | Losing the process invalidates the session and resolution cache before a later reopen. |
-| Initial runtime-log scan limited to the final 2 MiB | FIXED | Startup searches backward in blocks until it finds a selection, reaches the start, or reaches a bounded 32 MiB scan. |
-| Multiple Realm usages matching one `.osu` hash | FIXED | Zero and multiple matches now produce controlled resolution errors instead of an unhandled LINQ exception. |
-| Unsafe temporary materialisation filename | FIXED | The physical leaf is sanitized for the current filesystem without changing the logical resource filename. |
-| OS-dependent containment comparison | FIXED | Path containment is case-insensitive on Windows and case-sensitive on Linux. |
-| ZIP entries that differ only by case | FIXED | Extraction, hashing and validation consistently preserve case-distinct logical archive entries. |
+| UTF-8 dividido entre lecturas incrementales del log | CORREGIDO | Un decodificador persistente conserva secuencias multibyte parciales entre anexados. |
+| Una fuente de beatmap falla y la otra funciona | CORREGIDO | El arbitraje conserva el resultado válido, informa el fallo de la otra fuente y nunca absorbe la cancelación del llamador. |
+| El llamador cancela un proceso auxiliar en ejecución | CORREGIDO | Se intenta terminar todo el árbol, se drena su salida y se relanza `OperationCanceledException`; el timeout no cambia. |
+| Lectura transitoria o corrupta de `config.json` | CORREGIDO | Los fallos transitorios de E/S o acceso dejan intacto el original; el JSON malformado se respalda antes de guardar defaults. |
+| Extracción de `.osz` sin límites | CORREGIDO | La cantidad de entradas, tamaño individual, tamaño del beatmap y total expandido tienen límites explícitos generosos y conteo durante el streaming. |
+| Cierre/reapertura de lazer con el mismo almacenamiento | CORREGIDO | Perder el proceso invalida la sesión y la caché de resolución antes de una reapertura posterior. |
+| Escaneo inicial del log limitado a los últimos 2 MiB | CORREGIDO | El inicio busca hacia atrás por bloques hasta hallar una selección, llegar al principio o alcanzar el límite de 32 MiB. |
+| Múltiples usos Realm coinciden con un hash `.osu` | CORREGIDO | Cero o múltiples coincidencias producen errores controlados de resolución en vez de una excepción LINQ no controlada. |
+| Nombre inseguro de materialización temporal | CORREGIDO | El nombre físico se sanea para el filesystem actual sin cambiar el nombre lógico del recurso. |
+| Comparación de contención dependiente del SO | CORREGIDO | La contención de rutas ignora mayúsculas en Windows y las distingue en Linux. |
+| Entradas ZIP que solo difieren por mayúsculas | CORREGIDO | Extracción, hashing y validación conservan consistentemente entradas lógicas distintas por mayúsculas. |
 
-The limits are 10,000 entries, 2 GiB per entry, 64 MiB per `.osu`, and 8 GiB total expanded data. They are intended to reject pathological archives without constraining legitimate large beatmapsets.
+Los límites son 10.000 entradas, 2 GiB por entrada, 64 MiB por `.osu` y 8 GiB de datos expandidos totales. Buscan rechazar archivos patológicos sin restringir beatmapsets grandes legítimos.
 
-No randomizer, parser output, seed behavior, profile behavior, storage discovery, source arbitration or licensing model changed in this hardening pass.
+Este endurecimiento no cambió el randomizador, el output del parser, las seeds, los perfiles, el descubrimiento de almacenamiento, el arbitraje de fuentes ni el modelo de licencias.
 
-## Validation snapshot
+## Resumen de validación
 
-- Locked restore: passed.
-- Local Release build: passed with 0 errors.
-- Automated suite: 146 passed, 0 failed.
-- Windows x64 publish: self-contained and framework-dependent passed.
-- Linux x64 cross-publish: self-contained and framework-dependent passed.
-- Ubuntu CI execution: configured and required by the release-candidate dependency graph; it will run after push.
-- Linux real-machine checks for the post-audit delta: intentionally left to the owner in `LINUX_POST_AUDIT_TESTS_v0.2.1.md`.
-- Secret/personal-data scan of the current tree and patch: passed; no Realm database or runtime log is tracked.
+- Restore bloqueado: aprobado.
+- Compilación Release local: aprobada con 0 errores.
+- Suite automatizada: 146 aprobadas, 0 fallidas.
+- Publicación Windows x64: autocontenida y dependiente del framework aprobadas.
+- Publicación cruzada Linux x64: autocontenida y dependiente del framework aprobadas.
+- Ejecución CI en Ubuntu: configurada y requerida por el grafo del candidato; se ejecutará después del push.
+- Comprobaciones en Linux real del delta posterior a la auditoría: dejadas intencionalmente al propietario en `LINUX_POST_AUDIT_TESTS_v0.2.1.md`.
+- Escaneo de secretos/datos personales del árbol y el parche actuales: aprobado; no se versiona ninguna base Realm ni runtime log.

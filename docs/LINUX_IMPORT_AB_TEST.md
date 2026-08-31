@@ -1,6 +1,6 @@
 # Prueba A/B de importación Linux
 
-Estado: **VERIFIED ON REAL LINUX VM + osu-winello + Wine**.
+Estado: **VERIFICADO EN VM LINUX REAL + osu-winello + Wine**.
 
 Resultado observado:
 
@@ -43,9 +43,9 @@ Espera unos segundos sin pulsar F5 y anota si aparece la dificultad.
 
 ## Interpretación y comportamiento implementado
 
-- La aplicación selecciona Wine-side solamente en Linux, cuando **Write beside the original beatmap** está activo.
+- La aplicación selecciona la copia mediante Wine solamente en Linux, cuando **Write beside the original beatmap** está activo.
 - El output central deliberado no se copia silenciosamente a `Songs`.
 - Cada ruta se convierte mediante `winepath`; nunca se construye `Z:` manualmente.
-- Si Wine-side falla, la copia nativa conserva el resultado y la UI recomienda F5.
+- Si la copia mediante Wine falla, la copia nativa conserva el resultado y la UI recomienda F5.
 - Si también falla la copia nativa, el `.osu` queda preservado en la carpeta central para importación manual.
-- Los fallos y paths complejos están **MOCK TESTED**; la prueba manual de esta integración completa debe repetirse con cada release candidate.
+- Los fallos y rutas complejas están **PROBADOS CON MOCKS**; la prueba manual de esta integración completa debe repetirse con cada candidato de release.

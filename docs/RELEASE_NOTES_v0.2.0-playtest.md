@@ -1,26 +1,26 @@
-# HRandomPlus v0.2.0-playtest (development candidate)
+# HRandomPlus v0.2.0-playtest (candidato de desarrollo)
 
-This version adds first-class native osu!lazer support on Windows x64 and Linux x64 while preserving every existing osu!stable path and the v0.1.1 randomization engine.
+Esta versión añade soporte nativo de primer nivel para osu!lazer en Windows x64 y Linux x64, conservando todas las rutas existentes de osu!stable y el motor de randomización de v0.1.1.
 
-## Added
+## Añadido
 
-- Native lazer process and storage discovery, including standard, `storage.ini` custom and compatible portable locations.
-- Incremental, rotation-aware runtime-log monitoring with historical GUID, current text log and `<timestamp>.runtime.log` support.
-- Dynamic, read-only `client.realm` lookup that follows the on-disk schema, plus SHA-256 validation of the selected `.osu` blob.
-- Safe `.osz` import of a detached local difficulty with original set resources; no Realm/blob modification.
-- Deterministic stable/lazer arbitration and explicit source labels.
-- Automated coverage for detection primitives, ambiguity rejection, storage/blob resolution, arbitration and archive construction.
+- Descubrimiento nativo del proceso y almacenamiento de lazer, incluidas ubicaciones estándar, personalizadas mediante `storage.ini` y portables compatibles.
+- Monitorización incremental del runtime log, consciente de rotación, con compatibilidad para GUID histórico, log textual actual y `<timestamp>.runtime.log`.
+- Consulta dinámica de solo lectura de `client.realm` que sigue el esquema en disco, más validación SHA-256 del blob `.osu` seleccionado.
+- Importación segura de `.osz` de una dificultad local desvinculada con los recursos originales del set; sin modificar Realm ni blobs.
+- Arbitraje determinista stable/lazer y etiquetas explícitas de fuente.
+- Cobertura automatizada para primitivas de detección, rechazo de ambigüedad, resolución de almacenamiento/blob, arbitraje y construcción de archivos.
 
-## Unchanged
+## Sin cambios
 
-- H-Random, S-Random and Custom algorithms, parameters, seeds and long-note protection.
-- Profile storage/import/export.
-- Windows stable memory detection.
-- Linux stable tosu/osu-winello detection and Wine-side import.
-- Output collision handling. Manual `.osu` selection remains available for stable and is disabled while lazer is the active source.
+- Algoritmos, parámetros, seeds y protección de long notes de H-Random, S-Random y Custom.
+- Almacenamiento/importación/exportación de perfiles.
+- Detección en memoria de stable para Windows.
+- Detección stable con tosu/osu-winello e importación mediante Wine en Linux.
+- Manejo de colisiones de output. La selección manual de `.osu` sigue disponible para stable y se desactiva mientras lazer es la fuente activa.
 
-## Verification state
+## Estado de verificación
 
-The implementation and automated suite are complete locally. Real Windows and native Linux functional playtests passed with no reported failures; the artificial launcher-failure scenario is not a release gate because it does not represent lazer's normal import flow.
+La implementación y la suite automatizada están completas localmente. Los playtests funcionales en Windows real y Linux nativo fueron aprobados sin fallos reportados; el escenario artificial de fallo del lanzador no es una condición de release porque no representa el flujo normal de importación de lazer.
 
-Technical design, exact upstream revision and failure behavior are documented in `docs/LAZER_IMPLEMENTATION.md`.
+El diseño técnico, la revisión upstream exacta y el comportamiento ante fallos están documentados en `docs/LAZER_IMPLEMENTATION.md`.

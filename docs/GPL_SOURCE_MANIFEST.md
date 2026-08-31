@@ -1,34 +1,34 @@
-# GPL corresponding-source manifest
+# Manifiesto de fuentes correspondientes GPL
 
-Release candidate: `v0.2.1-playtest`
+Candidato de release: `v0.2.1-playtest`
 
-This manifest maps all GPL-covered code in the Windows x64 candidate to its corresponding source.
+Este manifiesto vincula todo el código cubierto por GPL del candidato Windows x64 con sus fuentes correspondientes.
 
-## HRandomPlus source
+## Fuentes de HRandomPlus
 
-HRandomPlus `v0.2.1-playtest` is distributed under `GPL-3.0-or-later`. `HRandomPlus-v0.2.1-playtest-source.zip` is generated from the same repository revision used by the binary jobs and contains the solution, all application and test source, project/build files, `NuGet.Config`, configuration example, workflow, documentation and license material. Generated outputs, package caches, personal configuration and beatmaps are excluded.
+HRandomPlus `v0.2.1-playtest` se distribuye bajo `GPL-3.0-or-later`. `HRandomPlus-v0.2.1-playtest-source.zip` se genera desde la misma revisión del repositorio usada por los jobs binarios y contiene la solución, todas las fuentes de la aplicación y pruebas, archivos de proyecto/compilación, `NuGet.Config`, configuración de ejemplo, workflow, documentación y material de licencias. Se excluyen outputs generados, cachés de paquetes, configuración personal y beatmaps.
 
-Rebuild commands are documented in `README.md`; the authoritative automated commands are in `.github/workflows/build.yml`.
+Los comandos de recompilación están documentados en `README.md`; los comandos automatizados autoritativos están en `.github/workflows/build.yml`.
 
-## Package mapping
+## Correspondencia de paquetes
 
-| NuGet package | Version | Package SHA-256 | License | Upstream tag | Exact commit |
+| Paquete NuGet | Versión | SHA-256 del paquete | Licencia | Tag upstream | Commit exacto |
 |---|---:|---|---|---|---|
 | OsuMemoryDataProvider | 0.12.2 | `739f03b7db1510887a6266532a8e0dda2ebb56d3ee0c9f8172dab60cc42745fc` | GPL-3.0-or-later | `osu_v0.12.2` | `122dd102fe272de30471cf1f317805cb49ac23a4` |
 | ProcessMemoryDataFinder | 0.10.2 | `ae25ddc53bb6ced73c975d045e79a52050cdadbe7144966f19bd8fc22e8dd9b4` | GPL-3.0-or-later | `process_v0.10.2` | `122dd102fe272de30471cf1f317805cb49ac23a4` |
 
-Both annotated tags resolve to the same commit declared in both NuGet manifests.
+Ambos tags anotados resuelven al mismo commit declarado en los dos manifiestos NuGet.
 
-## Included source snapshot
+## Snapshot de fuentes incluido
 
-- Repository: `https://github.com/Piotrekol/ProcessMemoryDataFinder`
-- Immutable source URL: `https://github.com/Piotrekol/ProcessMemoryDataFinder/tree/122dd102fe272de30471cf1f317805cb49ac23a4`
-- Official archive URL: `https://codeload.github.com/Piotrekol/ProcessMemoryDataFinder/zip/122dd102fe272de30471cf1f317805cb49ac23a4`
-- Downloaded archive SHA-256: `9872dd7c18a1a8a4ec16b8d66b409f377dda9b6974057a9a889fd5c73fad0535`
-- Downloaded archive SHA-512: `b69f4cf66b7d4895b9f629d698debc080628530e711be419fe106a983268cd2d9d5f0324668a9f443b934eea255d205fd0af0f7894633c011c964cf10c0a059e`
+- Repositorio: `https://github.com/Piotrekol/ProcessMemoryDataFinder`
+- URL inmutable de fuentes: `https://github.com/Piotrekol/ProcessMemoryDataFinder/tree/122dd102fe272de30471cf1f317805cb49ac23a4`
+- URL oficial del archivo: `https://codeload.github.com/Piotrekol/ProcessMemoryDataFinder/zip/122dd102fe272de30471cf1f317805cb49ac23a4`
+- SHA-256 del archivo descargado: `9872dd7c18a1a8a4ec16b8d66b409f377dda9b6974057a9a889fd5c73fad0535`
+- SHA-512 del archivo descargado: `b69f4cf66b7d4895b9f629d698debc080628530e711be419fe106a983268cd2d9d5f0324668a9f443b934eea255d205fd0af0f7894633c011c964cf10c0a059e`
 
-`HRandomPlus-v0.2.1-playtest-gpl-source.zip` expands that complete repository snapshot and places this manifest beside it. The snapshot includes both package projects, shared source, solution/build files and the upstream GPL license.
+`HRandomPlus-v0.2.1-playtest-gpl-source.zip` expande ese snapshot completo del repositorio y coloca este manifiesto junto a él. El snapshot incluye los proyectos de ambos paquetes, fuentes compartidas, archivos de solución/compilación y la licencia GPL upstream.
 
-## Distribution set
+## Conjunto de distribución
 
-The two Windows binary variants, the Linux binary variants, HRandomPlus source ZIP, upstream GPL source ZIP and `SHA256SUMS.txt` form one release set. Do not publish either Windows binary without both corresponding-source archives and the checksum manifest from the same candidate run.
+Las dos variantes binarias de Windows, las variantes binarias de Linux, el ZIP de fuentes de HRandomPlus, el ZIP de fuentes GPL upstream y `SHA256SUMS.txt` forman un único conjunto de release. No publiques ningún binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.

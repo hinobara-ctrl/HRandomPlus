@@ -1,11 +1,11 @@
-# Linux post-audit manual checks — v0.2.1
+# Comprobaciones manuales de Linux posteriores a la auditoría — v0.2.1
 
-These checks are intentionally owner-run on a real Linux installation or the prepared VM. Automated coverage exists for every corrected edge case; this list only covers useful platform-level confirmation.
+Estas comprobaciones se dejan intencionalmente al propietario en una instalación Linux real o en la VM preparada. Cada caso límite corregido cuenta con cobertura automatizada; esta lista solo reúne confirmaciones útiles a nivel de plataforma.
 
-- [ ] Start HRandomPlus after lazer has produced a runtime log larger than 2 MiB. Confirm that the current map is found without selecting it again.
-- [ ] With lazer detected, close lazer and reopen it using the same storage. Confirm that HRandomPlus reconnects and resolves the current map instead of retaining the previous session.
-- [ ] Randomize and import a normal, resource-heavy lazer beatmapset. Confirm that the generated difficulty imports and its audio/resources remain available.
-- [ ] Cancel or close HRandomPlus while a Wine-side helper operation is still running. Confirm that no helper process remains orphaned.
-- [ ] If a real beatmapset contains resource names differing only by letter case, process it and confirm that both resources survive. Do not manufacture or modify a personal set solely for this check.
+- [ ] Iniciar HRandomPlus después de que lazer haya producido un runtime log de más de 2 MiB. Confirmar que encuentra el mapa actual sin volver a seleccionarlo.
+- [ ] Con lazer detectado, cerrarlo y reabrirlo usando el mismo almacenamiento. Confirmar que HRandomPlus se reconecta y resuelve el mapa actual en vez de conservar la sesión anterior.
+- [ ] Randomizar e importar un beatmapset normal de lazer con muchos recursos. Confirmar que la dificultad se importa y su audio/recursos permanecen disponibles.
+- [ ] Cancelar o cerrar HRandomPlus mientras siga activa una operación auxiliar mediante Wine. Confirmar que no queda ningún proceso auxiliar huérfano.
+- [ ] Si un beatmapset real contiene recursos cuyos nombres solo difieren por mayúsculas, procesarlo y confirmar que ambos sobreviven. No crear ni modificar un set personal únicamente para esta comprobación.
 
-Not required manually: split UTF-8 byte sequences, malformed settings backup, duplicate Realm usage rows, traversal rejection, extraction-limit rejection, and cancellation propagation are deterministic regression tests in `HRandomPlus.Tests`.
+No requieren prueba manual: las secuencias UTF-8 divididas, el respaldo de configuración malformada, usos Realm duplicados, rechazo de traversal, rechazo por límites de extracción y propagación de cancelación son pruebas de regresión deterministas en `HRandomPlus.Tests`.
