@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: **WINDOWS RELEASE TECHNICALLY READY**
+Status: **v0.2.x DISTRIBUTION TECHNICALLY READY**
 
 This is a technical inventory, not legal advice. It was produced from project references, resolved `project.assets.json` files, NuGet manifests and license files, official .NET 8.0.30 distributions, upstream source revisions, and multi-file self-contained publishes for `win-x64` and `linux-x64`.
 
@@ -10,7 +10,7 @@ This is a technical inventory, not legal advice. It was produced from project re
 
 | Dependency | Version | License | Platform | Redistributed? | Evidence/source revision |
 |---|---:|---|---|---|---|
-| HRandomPlus-owned code | 0.2.0-playtest | GPL-3.0-or-later | Windows/Linux | Yes | Root `LICENSE`; exact candidate source bundle |
+| HRandomPlus-owned code | 0.2.1-playtest | GPL-3.0-or-later | Windows/Linux | Yes | Root `LICENSE`; exact candidate source bundle |
 | OsuMemoryDataProvider | 0.12.2 | GPL-3.0-or-later | Windows | **Yes**, embedded | NuGet commit `122dd102fe272de30471cf1f317805cb49ac23a4`; tag `osu_v0.12.2` |
 | ProcessMemoryDataFinder | 0.10.2 | GPL-3.0-or-later | Windows | **Yes**, embedded | Same commit; tag `process_v0.10.2` |
 | Realm .NET | 20.1.0 | Apache-2.0 | Windows/Linux | **Yes**, managed assembly plus selected `realm-wrappers` native library | NuGet commit `370ce596a0cf5e992b717bb199d70e55391ff2b9` |
@@ -50,9 +50,9 @@ The Linux audit publish contains no OsuMemoryDataProvider, ProcessMemoryDataFind
 
 ## GPL source correspondence prepared
 
-`HRandomPlus-v0.2.0-playtest-gpl-source.zip` contains the complete ProcessMemoryDataFinder repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, not a link to a moving branch. That single commit is declared in both NuGet manifests and is the target of both release tags. The bundle includes all repository files, project/build material and the upstream GPL license, plus a provenance manifest.
+`HRandomPlus-v0.2.1-playtest-gpl-source.zip` contains the complete ProcessMemoryDataFinder repository snapshot at commit `122dd102fe272de30471cf1f317805cb49ac23a4`, not a link to a moving branch. That single commit is declared in both NuGet manifests and is the target of both release tags. The bundle includes all repository files, project/build material and the upstream GPL license, plus a provenance manifest.
 
-`HRandomPlus-v0.2.0-playtest-source.zip` contains the HRandomPlus source tree used to build the candidate artifacts.
+`HRandomPlus-v0.2.1-playtest-source.zip` contains the HRandomPlus source tree used to build the candidate artifacts.
 
 ## Distribution readiness
 

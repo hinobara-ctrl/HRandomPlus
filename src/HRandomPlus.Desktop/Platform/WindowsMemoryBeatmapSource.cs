@@ -93,21 +93,39 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         var candidates = new List<(Process Process, string Directory)>();
         foreach (Process process in Process.GetProcessesByName("osu!"))
         {
+            bool retained = false;
             try
             {
                 string? directory = Path.GetDirectoryName(process.MainModule?.FileName);
                 if (directory is not null && Directory.Exists(Path.Combine(directory, "Songs")))
+                {
                     candidates.Add((process, Path.GetFullPath(directory)));
+                    retained = true;
+                }
             }
             catch { }
+            finally
+            {
+                if (!retained) process.Dispose();
+            }
         }
-        if (!string.IsNullOrWhiteSpace(settings.OsuPath))
+        Process? selected = null;
+        try
         {
-            string configured = Path.GetFullPath(settings.OsuPath);
-            Process? exact = candidates.FirstOrDefault(c => c.Directory.Equals(configured, StringComparison.OrdinalIgnoreCase)).Process;
-            if (exact is not null) return exact;
+            if (!string.IsNullOrWhiteSpace(settings.OsuPath))
+            {
+                string configured = Path.GetFullPath(settings.OsuPath);
+                selected = candidates.FirstOrDefault(c => c.Directory.Equals(configured, StringComparison.OrdinalIgnoreCase)).Process;
+                if (selected is not null) return selected;
+            }
+            selected = candidates.OrderByDescending(c => c.Process.StartTime).Select(c => c.Process).FirstOrDefault();
+            return selected;
         }
-        return candidates.OrderByDescending(c => c.Process.StartTime).Select(c => c.Process).FirstOrDefault();
+        finally
+        {
+            foreach ((Process process, _) in candidates)
+                if (!ReferenceEquals(process, selected)) process.Dispose();
+        }
     }
 
     private string? ResolveOsuPath(Process process)

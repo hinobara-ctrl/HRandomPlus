@@ -8,6 +8,11 @@ public interface ILazerProcessDetector
     string? FindExecutablePath();
 }
 
+public interface ILazerResolutionInvalidator
+{
+    void InvalidateLazerResolution();
+}
+
 public sealed class LazerProcessDetector : ILazerProcessDetector
 {
     public string? FindExecutablePath()
@@ -30,21 +35,22 @@ public sealed class LazerProcessDetector : ILazerProcessDetector
     }
 }
 
-public sealed class LazerCurrentBeatmapSource : IBeatmapSource
+public sealed class LazerCurrentBeatmapSource : IBeatmapSource, ILazerResolutionInvalidator
 {
     private readonly ILazerStorageDiscovery discovery;
     private readonly ILazerProcessDetector processDetector;
-    private readonly LazerRuntimeLogMonitor monitor;
-    private readonly LazerBeatmapResolver resolver;
+    private readonly ILazerRuntimeLogMonitor monitor;
+    private readonly ILazerBeatmapResolver resolver;
     private LazerStorage? storage;
     private DateTimeOffset nextDiscovery;
     private Guid? lastGuid;
     private string? lastDisplay;
+    private DateTimeOffset? lastObservedAt;
     private BeatmapSourceResult? cached;
 
     public LazerCurrentBeatmapSource(ILazerStorageDiscovery? discovery = null,
-        ILazerProcessDetector? processDetector = null, LazerRuntimeLogMonitor? monitor = null,
-        LazerBeatmapResolver? resolver = null)
+        ILazerProcessDetector? processDetector = null, ILazerRuntimeLogMonitor? monitor = null,
+        ILazerBeatmapResolver? resolver = null)
     {
         this.discovery = discovery ?? new LazerStorageDiscovery();
         this.processDetector = processDetector ?? new LazerProcessDetector();
@@ -72,6 +78,7 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource
                 cached = null;
                 lastGuid = null;
                 lastDisplay = null;
+                lastObservedAt = null;
             }
             nextDiscovery = DateTimeOffset.UtcNow.AddSeconds(5);
         }
@@ -85,12 +92,14 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource
             if (logSelection is null)
                 return BeatmapSourceResult.Waiting("osu!lazer detected; open Song Select",
                     BeatmapDetectionSource.Lazer);
-            if (cached is not null && logSelection.BeatmapId == lastGuid && logSelection.DisplayName == lastDisplay)
+            if (cached is not null && logSelection.BeatmapId == lastGuid &&
+                logSelection.DisplayName == lastDisplay && logSelection.ObservedAt == lastObservedAt)
                 return cached;
 
             LazerResolution resolution = resolver.Resolve(storage, logSelection, executable);
             lastGuid = logSelection.BeatmapId;
             lastDisplay = logSelection.DisplayName;
+            lastObservedAt = logSelection.ObservedAt;
             return cached = BeatmapSourceResult.Found(resolution.Selection, string.Empty,
                 detectionSource: BeatmapDetectionSource.Lazer, observedAt: resolution.ObservedAt);
         }
@@ -99,6 +108,14 @@ public sealed class LazerCurrentBeatmapSource : IBeatmapSource
             return BeatmapSourceResult.Waiting($"osu!lazer selection unresolved: {ex.Message}",
                 BeatmapDetectionSource.Lazer);
         }
+    }
+
+    public void InvalidateLazerResolution()
+    {
+        cached = null;
+        lastGuid = null;
+        lastDisplay = null;
+        lastObservedAt = null;
     }
 
     private static IEnumerable<string> PortableStorageRoots(string executable)

@@ -3,7 +3,8 @@ using System.Diagnostics;
 
 namespace HRandomPlus.Integration.Importing;
 
-public sealed record ProcessRunRequest(string FileName, IReadOnlyList<string> Arguments, TimeSpan Timeout);
+public sealed record ProcessRunRequest(string FileName, IReadOnlyList<string> Arguments, TimeSpan Timeout,
+                                       IReadOnlyDictionary<string, string>? Environment = null);
 
 public sealed record ProcessRunResult(bool Started, bool TimedOut, int? ExitCode, string StandardOutput,
                                       string StandardError, string? Error)
@@ -29,6 +30,9 @@ public sealed class SystemProcessRunner : IProcessRunner
             CreateNoWindow = true
         };
         foreach (string argument in request.Arguments) startInfo.ArgumentList.Add(argument);
+        if (request.Environment is not null)
+            foreach ((string name, string value) in request.Environment)
+                startInfo.Environment[name] = value;
 
         try
         {

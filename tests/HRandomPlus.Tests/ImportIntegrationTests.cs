@@ -26,9 +26,11 @@ public class ImportIntegrationTests
 
                 Assert.Equal(new[]
                 {
-                    "--wine", "cmd", "/d", "/c", "copy", "/y",
-                    "WINE|" + generated, "WINE|" + nativeDestination
+                    "--wine", "cmd", "/d", "/v:off", "/s", "/c",
+                    "copy /y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\""
                 }, request.Arguments);
+                Assert.Equal("WINE|" + generated, request.Environment!["HRANDOMPLUS_SOURCE"]);
+                Assert.Equal("WINE|" + nativeDestination, request.Environment["HRANDOMPLUS_DESTINATION"]);
                 File.Copy(generated, nativeDestination!, overwrite: false);
                 return new ProcessRunResult(true, false, 0, "1 file copied", "", null);
             });
@@ -44,6 +46,47 @@ public class ImportIntegrationTests
             Assert.True(!File.Exists(generated));
             Assert.Contains("sourceWine=WINE|", result.Diagnostics!);
             Assert.True(!result.Diagnostics!.Contains("Z:\\", StringComparison.Ordinal));
+        });
+    }
+
+    [Theory]
+    [InlineData("space path")]
+    [InlineData("apostrophe's")]
+    [InlineData("bang!")]
+    [InlineData("ampersand&")]
+    [InlineData("pipe|")]
+    [InlineData("percent%")]
+    [InlineData("caret^")]
+    [InlineData("less<greater>")]
+    [InlineData("canción-日本語")]
+    public void WineSideCopyKeepsSpecialWinePathsOutOfTheCommand(string specialPath)
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            int call = 0;
+            string? destination = null;
+            var runner = new FakeRunner((request, _) =>
+            {
+                call++;
+                if (call <= 2)
+                {
+                    if (call == 2) destination = request.Arguments[3];
+                    return new ProcessRunResult(true, false, 0, $"Z:\\{specialPath}\\item{call}.osu", "", null);
+                }
+
+                string commandLine = request.Arguments[^1];
+                Assert.True(!commandLine.Contains(specialPath, StringComparison.Ordinal));
+                Assert.Equal($"Z:\\{specialPath}\\item1.osu", request.Environment!["HRANDOMPLUS_SOURCE"]);
+                Assert.Equal($"Z:\\{specialPath}\\item2.osu", request.Environment["HRANDOMPLUS_DESTINATION"]);
+                File.Copy(generated, destination!, overwrite: false);
+                return new ProcessRunResult(true, false, 0, "copied", "", null);
+            });
+
+            BeatmapImportResult result = new WineSideFileImporter(runner).ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(result.Success, result.Message);
+            Assert.True(!result.FallbackUsed);
         });
     }
 

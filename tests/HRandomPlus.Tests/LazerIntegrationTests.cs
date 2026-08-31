@@ -101,6 +101,55 @@ public class LazerIntegrationTests
     }
 
     [Fact]
+    public void RuntimeMonitorPrefersNewTimestampLogOverOldRuntimeLog()
+    {
+        string root = TempRoot();
+        string logs = Path.Combine(root, "logs");
+        Directory.CreateDirectory(logs);
+        string runtime = Path.Combine(logs, "runtime.log");
+        string timestamped = Path.Combine(logs, "1788121867.runtime.log");
+        WriteSelection(runtime, "old", DateTime.UtcNow.AddMinutes(-2));
+        WriteSelection(timestamped, "new", DateTime.UtcNow);
+
+        LazerLogSelection? selection = new LazerRuntimeLogMonitor().ReadCurrent(Storage(root, logs));
+
+        Assert.Equal("new", selection!.DisplayName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void RuntimeMonitorPrefersNewRuntimeLogOverOldTimestampLog()
+    {
+        string root = TempRoot();
+        string logs = Path.Combine(root, "logs");
+        Directory.CreateDirectory(logs);
+        string runtime = Path.Combine(logs, "runtime.log");
+        string timestamped = Path.Combine(logs, "1788121867.runtime.log");
+        WriteSelection(timestamped, "old", DateTime.UtcNow.AddMinutes(-2));
+        WriteSelection(runtime, "new", DateTime.UtcNow);
+
+        LazerLogSelection? selection = new LazerRuntimeLogMonitor().ReadCurrent(Storage(root, logs));
+
+        Assert.Equal("new", selection!.DisplayName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void RuntimeMonitorChoosesNewestOfTwoTimestampLogs()
+    {
+        string root = TempRoot();
+        string logs = Path.Combine(root, "logs");
+        Directory.CreateDirectory(logs);
+        WriteSelection(Path.Combine(logs, "100.runtime.log"), "old", DateTime.UtcNow.AddMinutes(-2));
+        WriteSelection(Path.Combine(logs, "200.runtime.log"), "new", DateTime.UtcNow);
+
+        LazerLogSelection? selection = new LazerRuntimeLogMonitor().ReadCurrent(Storage(root, logs));
+
+        Assert.Equal("new", selection!.DisplayName);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void BlobPathUsesOfficialHashFanout()
     {
         string hash = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
@@ -194,6 +243,63 @@ public class LazerIntegrationTests
     }
 
     [Fact]
+    public void NewEventForSameLazerSelectionRefreshesRealmResolution()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        var storage = new LazerStorage(root, Path.Combine(root, "client.realm"), Path.Combine(root, "files"), Path.Combine(root, "logs"));
+        Guid id = Guid.NewGuid();
+        var monitor = new MutableLazerMonitor(new LazerLogSelection(id, "mania", "same", DateTimeOffset.UtcNow));
+        var resolver = new CountingLazerResolver();
+        var source = new LazerCurrentBeatmapSource(new FixedStorageDiscovery(storage), new FixedLazerProcessDetector(root), monitor, resolver);
+
+        BeatmapSourceResult first = source.GetCurrentAsync().Result;
+        monitor.Selection = monitor.Selection! with { ObservedAt = monitor.Selection.ObservedAt.AddSeconds(1) };
+        BeatmapSourceResult second = source.GetCurrentAsync().Result;
+
+        Assert.Equal(2, resolver.Calls);
+        Assert.Equal("hash-1", first.Selection!.Beatmap.Checksum);
+        Assert.Equal("hash-2", second.Selection!.Beatmap.Checksum);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void UnchangedLazerEventKeepsCachedResolution()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        var storage = new LazerStorage(root, Path.Combine(root, "client.realm"), Path.Combine(root, "files"), Path.Combine(root, "logs"));
+        var monitor = new MutableLazerMonitor(new LazerLogSelection(Guid.NewGuid(), "mania", "same", DateTimeOffset.UtcNow));
+        var resolver = new CountingLazerResolver();
+        var source = new LazerCurrentBeatmapSource(new FixedStorageDiscovery(storage), new FixedLazerProcessDetector(root), monitor, resolver);
+
+        _ = source.GetCurrentAsync().Result;
+        _ = source.GetCurrentAsync().Result;
+
+        Assert.Equal(1, resolver.Calls);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void SuccessfulLazerImportInvalidationForcesOneFreshResolution()
+    {
+        string root = TempRoot();
+        CreateStorage(root);
+        var storage = new LazerStorage(root, Path.Combine(root, "client.realm"), Path.Combine(root, "files"), Path.Combine(root, "logs"));
+        var monitor = new MutableLazerMonitor(new LazerLogSelection(Guid.NewGuid(), "mania", "same", DateTimeOffset.UtcNow));
+        var resolver = new CountingLazerResolver();
+        var source = new LazerCurrentBeatmapSource(new FixedStorageDiscovery(storage), new FixedLazerProcessDetector(root), monitor, resolver);
+
+        _ = source.GetCurrentAsync().Result;
+        source.InvalidateLazerResolution();
+        _ = source.GetCurrentAsync().Result;
+        _ = source.GetCurrentAsync().Result;
+
+        Assert.Equal(2, resolver.Calls);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void StatusFormatterNamesLazerExplicitly()
     {
         BeatmapSourceResult result = Result("lazer", BeatmapDetectionSource.Lazer, DateTimeOffset.UtcNow);
@@ -251,6 +357,59 @@ public class LazerIntegrationTests
         Directory.Delete(root, true);
     }
 
+    [Fact]
+    public void LazerArchiveReportsMissingRequiredAudioBeforeLaunching()
+    {
+        string root = TempRoot();
+        string generated = Path.Combine(root, "generated.osu");
+        File.WriteAllBytes(generated, ValidBeatmap());
+        var context = new LazerBeatmapSelectionContext(Guid.NewGuid(), root,
+            new[] { new BeatmapResource("audio.mp3", Path.Combine(root, "missing-audio-blob")) }, null);
+        var launcher = new CapturingLauncher();
+
+        BeatmapImportResult result = new LazerArchiveImporter(launcher, Path.Combine(root, "temp"))
+            .ImportAsync(new BeatmapImportRequest(generated, generated, root, context)).Result;
+
+        Assert.True(!result.Success);
+        Assert.True(launcher.Path is null);
+        Assert.Contains("audio.mp3", result.Message);
+        Assert.Contains("missing", result.Message);
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void LazerArchivePreservesResourcesThatDifferOnlyByCase()
+    {
+        string root = TempRoot();
+        string generated = Path.Combine(root, "generated.osu");
+        File.WriteAllBytes(generated, ValidBeatmap());
+        string audio = Path.Combine(root, "audio-blob");
+        string lower = Path.Combine(root, "lower-blob");
+        string upper = Path.Combine(root, "upper-blob");
+        File.WriteAllBytes(audio, new byte[] { 1 });
+        File.WriteAllBytes(lower, new byte[] { 2 });
+        File.WriteAllBytes(upper, new byte[] { 3 });
+        var context = new LazerBeatmapSelectionContext(Guid.NewGuid(), root,
+            new[]
+            {
+                new BeatmapResource("audio.mp3", audio),
+                new BeatmapResource("hit.wav", lower),
+                new BeatmapResource("Hit.wav", upper)
+            }, null);
+        var launcher = new CapturingLauncher();
+
+        BeatmapImportResult result = new LazerArchiveImporter(launcher, Path.Combine(root, "temp"))
+            .ImportAsync(new BeatmapImportRequest(generated, generated, root, context)).Result;
+
+        Assert.True(result.Success, result.Message);
+        using (ZipArchive archive = ZipFile.OpenRead(launcher.Path!))
+        {
+            Assert.True(archive.GetEntry("hit.wav") is not null);
+            Assert.True(archive.GetEntry("Hit.wav") is not null);
+        }
+        Directory.Delete(root, true);
+    }
+
     private static BeatmapSourceResult Result(string identity, BeatmapDetectionSource source, DateTimeOffset observed)
     {
         var info = new BeatmapInfo(0, 0, identity, "", "", "", "", "", identity + ".osu", identity);
@@ -274,6 +433,15 @@ public class LazerIntegrationTests
         Directory.CreateDirectory(Path.Combine(root, "files"));
         Directory.CreateDirectory(Path.Combine(root, "logs"));
         File.WriteAllBytes(Path.Combine(root, "client.realm"), new byte[] { 1 });
+    }
+
+    private static LazerStorage Storage(string root, string logs)
+        => new(root, Path.Combine(root, "client.realm"), Path.Combine(root, "files"), logs);
+
+    private static void WriteSelection(string path, string displayName, DateTime lastWriteUtc)
+    {
+        File.WriteAllText(path, $"Game-wide working beatmap updated to {displayName}\n");
+        File.SetLastWriteTimeUtc(path, lastWriteUtc);
     }
 
     private sealed class FakeCatalog : ILazerBeatmapCatalog
@@ -307,6 +475,36 @@ public class LazerIntegrationTests
             Path = filePath;
             error = null;
             return true;
+        }
+    }
+
+    private sealed class FixedStorageDiscovery(LazerStorage storage) : ILazerStorageDiscovery
+    {
+        public IReadOnlyList<LazerStorage> Discover() => new[] { storage };
+    }
+
+    private sealed class FixedLazerProcessDetector(string root) : ILazerProcessDetector
+    {
+        public string? FindExecutablePath() => Path.Combine(root, "osu!");
+    }
+
+    private sealed class MutableLazerMonitor(LazerLogSelection? selection) : ILazerRuntimeLogMonitor
+    {
+        public LazerLogSelection? Selection { get; set; } = selection;
+        public LazerLogSelection? ReadCurrent(LazerStorage storage) => Selection;
+        public void Reset() { }
+    }
+
+    private sealed class CountingLazerResolver : ILazerBeatmapResolver
+    {
+        public int Calls { get; private set; }
+
+        public LazerResolution Resolve(LazerStorage storage, LazerLogSelection logSelection, string? executablePath = null)
+        {
+            Calls++;
+            string hash = $"hash-{Calls}";
+            var beatmap = new BeatmapInfo(Calls, 0, hash, "", "", "", "", "", "map.osu", "map.osu");
+            return new LazerResolution(new BeatmapSelection(beatmap, "map.osu"), logSelection.ObservedAt);
         }
     }
 }

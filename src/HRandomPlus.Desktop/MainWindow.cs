@@ -10,6 +10,7 @@ using HRandomPlus.Core;
 using HRandomPlus.Desktop.Platform;
 using HRandomPlus.Integration.Beatmaps;
 using HRandomPlus.Integration.Importing;
+using HRandomPlus.Integration.Lazer;
 
 namespace HRandomPlus.Desktop;
 
@@ -380,6 +381,8 @@ public sealed class MainWindow : Window
             BeatmapImportResult import = await importer.ImportAsync(
                 new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory, lazerContext),
                 pollingCancellation.Token);
+            if (useLazer && import.Success && source is ILazerResolutionInvalidator invalidator)
+                invalidator.InvalidateLazerResolution();
             seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
             string importMessage = useWineSide || useLazer ? $"\n{import.Message}" : string.Empty;
             SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {import.PreservedOutputPath}{importMessage}");

@@ -13,3 +13,11 @@ FodyWeavers.xsd
 AvaloniaUI/
 smoke-localappdata*/
 PROJECT_CONTEXT_AND_NEXT_STEPS.txt
+
+# Local osu!lazer storage and runtime observations
+client.realm
+client.realm.lock
+client.realm.note
+client.realm.management/
+runtime.log
+*.runtime.log

@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>0.2.0-playtest</Version>
+    <Version>0.2.1-playtest</Version>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <Copyright>Copyright (c) 2026 HRandomPlus contributors</Copyright>
   </PropertyGroup>

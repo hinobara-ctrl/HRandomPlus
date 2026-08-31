@@ -102,7 +102,12 @@ public sealed class RealmLazerBeatmapCatalog : ILazerBeatmapCatalog
 
 public sealed record LazerResolution(BeatmapSelection Selection, DateTimeOffset ObservedAt);
 
-public sealed class LazerBeatmapResolver
+public interface ILazerBeatmapResolver
+{
+    LazerResolution Resolve(LazerStorage storage, LazerLogSelection logSelection, string? executablePath = null);
+}
+
+public sealed class LazerBeatmapResolver : ILazerBeatmapResolver
 {
     private readonly ILazerBeatmapCatalog catalog;
     private readonly string materializedRoot;

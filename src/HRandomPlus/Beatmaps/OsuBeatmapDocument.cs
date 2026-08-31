@@ -20,12 +20,13 @@ public sealed class OsuBeatmapDocument
     public string Creator { get; }
     public int BeatmapId { get; private set; }
     public int BeatmapSetId { get; private set; }
+    public string AudioFilename { get; }
     public IReadOnlyList<ManiaHitObject> HitObjects { get; }
 
     private OsuBeatmapDocument(string sourcePath, List<string> lines, Encoding encoding, byte[] bom,
                                string newline, int mode, int keys, string version, string artist,
                                string title, string creator, int beatmapId, int beatmapSetId,
-                               IReadOnlyList<ManiaHitObject> hitObjects)
+                               string audioFilename, IReadOnlyList<ManiaHitObject> hitObjects)
     {
         SourcePath = sourcePath;
         this.lines = lines;
@@ -40,6 +41,7 @@ public sealed class OsuBeatmapDocument
         Creator = creator;
         BeatmapId = beatmapId;
         BeatmapSetId = beatmapSetId;
+        AudioFilename = audioFilename;
         HitObjects = hitObjects;
     }
 
@@ -80,9 +82,10 @@ public sealed class OsuBeatmapDocument
         string creator = ReadString(values, "Metadata", "Creator", "Unknown Mapper");
         int beatmapId = ReadInt(values, "Metadata", "BeatmapID", 0);
         int beatmapSetId = ReadInt(values, "Metadata", "BeatmapSetID", -1);
+        string audioFilename = ReadString(values, "General", "AudioFilename", string.Empty);
         if (mode != 3)
             return new OsuBeatmapDocument(sourcePath, lineList, enc, prefix, nl, mode, 0, version,
-                artist, title, creator, beatmapId, beatmapSetId, Array.Empty<ManiaHitObject>());
+                artist, title, creator, beatmapId, beatmapSetId, audioFilename, Array.Empty<ManiaHitObject>());
 
         double circleSize = ReadDouble(values, "Difficulty", "CircleSize");
         int keys = (int)Math.Round(circleSize, MidpointRounding.AwayFromZero);
@@ -103,7 +106,7 @@ public sealed class OsuBeatmapDocument
         }
 
         return new OsuBeatmapDocument(sourcePath, lineList, enc, prefix, nl, mode, keys, version,
-            artist, title, creator, beatmapId, beatmapSetId, objects);
+            artist, title, creator, beatmapId, beatmapSetId, audioFilename, objects);
     }
 
     public void ApplyObjects()

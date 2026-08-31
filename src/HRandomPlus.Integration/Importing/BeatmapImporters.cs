@@ -88,20 +88,24 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
         string archivePath = Path.Combine(temporaryRoot, $"HRandomPlus-{Guid.NewGuid():N}.osz");
         try
         {
+            OsuBeatmapDocument generated = OsuBeatmapDocument.Parse(
+                request.GeneratedPath, File.ReadAllBytes(request.GeneratedPath));
+            var resources = request.LazerContext.SetResources
+                .Where(resource => !resource.LogicalName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                .Select(resource => (Resource: resource, EntryName: SafeArchivePath(resource.LogicalName)))
+                .ToArray();
+            ValidateRequiredAudio(generated, resources);
+
             using (ZipArchive archive = ZipFile.Open(archivePath, ZipArchiveMode.Create))
             {
-                var addedEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (BeatmapResource resource in request.LazerContext.SetResources)
+                var addedEntries = new HashSet<string>(StringComparer.Ordinal);
+                foreach ((BeatmapResource resource, string entryName) in resources)
                 {
-                    if (resource.LogicalName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)) continue;
                     if (!File.Exists(resource.BlobPath)) continue;
-                    string entryName = SafeArchivePath(resource.LogicalName);
                     if (addedEntries.Add(entryName))
                         archive.CreateEntryFromFile(resource.BlobPath, entryName, CompressionLevel.Optimal);
                 }
 
-                OsuBeatmapDocument generated = OsuBeatmapDocument.Parse(
-                    request.GeneratedPath, File.ReadAllBytes(request.GeneratedPath));
                 generated.SetBeatmapId(0);
                 generated.SetBeatmapSetId(0);
                 ZipArchiveEntry entry = archive.CreateEntry(Path.GetFileName(request.GeneratedPath), CompressionLevel.Optimal);
@@ -127,6 +131,30 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
             return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, request.GeneratedPath,
                 $"The local variant was generated, but its lazer archive failed: {ex.Message}", preserved));
         }
+    }
+
+    private static void ValidateRequiredAudio(OsuBeatmapDocument generated,
+        IReadOnlyList<(BeatmapResource Resource, string EntryName)> resources)
+    {
+        if (string.IsNullOrWhiteSpace(generated.AudioFilename))
+            throw new InvalidDataException("The generated beatmap does not identify its required main audio resource.");
+
+        string audioEntry = SafeArchivePath(generated.AudioFilename);
+        (BeatmapResource Resource, string EntryName)? match = resources
+            .Where(item => item.EntryName.Equals(audioEntry, StringComparison.Ordinal))
+            .Select(item => ((BeatmapResource Resource, string EntryName)?)item)
+            .FirstOrDefault();
+        if (match is null)
+        {
+            var insensitiveMatches = resources
+                .Where(item => item.EntryName.Equals(audioEntry, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (insensitiveMatches.Length == 1) match = insensitiveMatches[0];
+        }
+
+        if (match is null || !File.Exists(match.Value.Resource.BlobPath))
+            throw new FileNotFoundException(
+                $"Required lazer audio resource '{generated.AudioFilename}' is missing from local storage.");
     }
 
     private static string SafeArchivePath(string logicalName)
@@ -221,7 +249,16 @@ public sealed class WineSideFileImporter : IBeatmapImporter
 
             ProcessRunResult copyResult = await processRunner.RunAsync(
                 new ProcessRunRequest(command,
-                    new[] { "--wine", "cmd", "/d", "/c", "copy", "/y", sourceWine, destinationWine }, timeout),
+                    new[]
+                    {
+                        "--wine", "cmd", "/d", "/v:off", "/s", "/c",
+                        "copy /y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\""
+                    }, timeout,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["HRANDOMPLUS_SOURCE"] = sourceWine,
+                        ["HRANDOMPLUS_DESTINATION"] = destinationWine
+                    }),
                 cancellationToken).ConfigureAwait(false);
             AppendProcessDiagnostics(diagnostics, "wineCopy", copyResult);
             if (!copyResult.Success)

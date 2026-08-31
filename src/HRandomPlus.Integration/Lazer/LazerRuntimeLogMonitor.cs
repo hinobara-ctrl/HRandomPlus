@@ -2,7 +2,13 @@ using System.Text;
 
 namespace HRandomPlus.Integration.Lazer;
 
-public sealed class LazerRuntimeLogMonitor
+public interface ILazerRuntimeLogMonitor
+{
+    LazerLogSelection? ReadCurrent(LazerStorage storage);
+    void Reset();
+}
+
+public sealed class LazerRuntimeLogMonitor : ILazerRuntimeLogMonitor
 {
     private string? currentPath;
     private long position;
@@ -90,8 +96,6 @@ public sealed class LazerRuntimeLogMonitor
 
     private static string? FindCurrentLog(string logsPath)
     {
-        string runtime = Path.Combine(logsPath, "runtime.log");
-        if (File.Exists(runtime)) return runtime;
         try
         {
             return Directory.EnumerateFiles(logsPath, "*.log")

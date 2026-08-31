@@ -2,7 +2,7 @@
 
 Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom de osu!mania. Conserva la integración de osu!stable en Windows/Linux y añade detección e importación nativas para osu!lazer en ambos sistemas. Todas las fuentes usan exactamente el mismo motor de randomización.
 
-Versión de desarrollo: **v0.2.0-playtest**.
+Versión de desarrollo: **v0.2.1-playtest**.
 
 ## Funciones
 
@@ -15,7 +15,7 @@ Versión de desarrollo: **v0.2.0-playtest**.
 - Importación segura a lazer mediante una variante local `.osz`; no modifica `client.realm` ni los blobs originales.
 - Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
 - Estado de origen inequívoco: Windows indica osu!stable, Linux indica tosu y la selección manual permanece diferenciada.
-- Selector manual `.osu` en ambas plataformas.
+- Selector manual `.osu` para osu!stable en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
 - Referencia visual editable de BPM a milisegundos para snaps de 1/1 a 1/64.
 - Version y filename únicos incluso al repetir el mismo perfil antes de que osu! refresque.
@@ -36,6 +36,8 @@ La salida predeterminada de Windows continúa creándose junto al beatmap origin
 No hacen falta tosu, Wine, `sudo` ni configurar una carpeta `Songs` para lazer nativo. Se reconocen las rutas estándar `%APPDATA%\osu` y `~/.local/share/osu`, el `FullPath` de `storage.ini` y almacenamientos portables compatibles junto al ejecutable. Si el log actual solo publica el nombre visible y más de una dificultad coincide, HRandomPlus deja la selección sin resolver en vez de elegir un mapa arbitrario.
 
 La sección **Platform and output** configura exclusivamente la integración de osu!stable para Linux mediante osu!-Wine/tosu. Permanece deshabilitada en Windows y mientras osu!lazer sea el origen activo.
+
+Mientras osu!lazer sea el origen activo, **Select .osu manually** y los controles de configuración de osu!stable permanecen deshabilitados. La selección manual es un fallback exclusivo del flujo stable.
 
 Cuando stable y lazer están abiertos al mismo tiempo, cada adaptador conserva su identidad y gana la selección que haya cambiado más recientemente. **Select .osu manually** sigue teniendo prioridad hasta que el juego cambie realmente de mapa.
 
@@ -72,7 +74,7 @@ $XDG_DATA_HOME/HRandomPlus/Generated Beatmaps
 
 Una preferencia ya guardada se respeta al actualizar. La aplicación siempre conserva el `.osu` generado aunque falle la actualización/importación.
 
-Cuando se escribe junto al beatmap, HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más `osu-wine --wine cmd copy` para materializarla desde el mismo entorno Wine de osu!stable. No construye rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5; si también falla el fallback, conserva el output central para importación manual.
+Cuando se escribe junto al beatmap, HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más una copia ejecutada dentro del mismo entorno Wine de osu!stable. Las rutas viajan en variables de entorno, fuera del texto interpretado por `cmd`, con expansión retardada desactivada; no se construyen rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5; si también falla el fallback, conserva el output central para importación manual.
 
 La [prueba A/B real](docs/LINUX_IMPORT_AB_TEST.md) confirmó que la copia Linux nativa necesitó F5 mientras la copia Wine-side fue detectada sin F5. Esto verifica el comportamiento funcional, no la API o mecanismo interno exacto de notificación del filesystem.
 
@@ -123,7 +125,7 @@ La UI y las fuentes no contienen lógica de random. El motor no conoce el sistem
 Los binarios apuntan a `net8.0`/`net8.0-windows`. El workflow oficial usa el SDK .NET 10 estable para compilar esos targets y mantener compatibilidad con los analizadores actuales de Avalonia. El SDK .NET 8 también puede compilar el proyecto, aunque puede mostrar advertencias `CS9057` por la versión de Roslyn.
 
 ```bash
-dotnet restore HRandomPlus.sln
+dotnet restore HRandomPlus.sln --locked-mode
 dotnet build HRandomPlus.sln -c Release
 dotnet run --project tests/HRandomPlus.Tests/HRandomPlus.Tests.csproj -c Release
 ```
@@ -150,7 +152,7 @@ dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
 
 ### Variantes de distribución
 
-Los ZIP `HRandomPlus-v0.2.0-playtest-windows-x64.zip` y `HRandomPlus-v0.2.0-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
+Los ZIP `HRandomPlus-v0.2.1-playtest-windows-x64.zip` y `HRandomPlus-v0.2.1-playtest-linux-x64.zip` son las variantes principales y autocontenidas: no requieren instalar .NET por separado.
 
 Los ZIP con sufijo `-framework-dependent` son variantes opcionales mucho más pequeñas. Requieren tener instalado **.NET Runtime 8 x64**. No sustituyen a las variantes autocontenidas y conservan el mismo código, configuración y comportamiento observable.
 

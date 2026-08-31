@@ -1,6 +1,8 @@
+using HRandomPlus.Integration.Lazer;
+
 namespace HRandomPlus.Integration.Beatmaps;
 
-public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable
+public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable, ILazerResolutionInvalidator
 {
     private readonly IBeatmapSource stable;
     private readonly IBeatmapSource lazer;
@@ -54,5 +56,14 @@ public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable
     {
         if (stable is IDisposable stableDisposable) stableDisposable.Dispose();
         if (lazer is IDisposable lazerDisposable) lazerDisposable.Dispose();
+    }
+
+    public void InvalidateLazerResolution()
+    {
+        if (lazer is ILazerResolutionInvalidator invalidator)
+            invalidator.InvalidateLazerResolution();
+        lazerIdentity = null;
+        lazerChanged = default;
+        if (active == BeatmapDetectionSource.Lazer) active = null;
     }
 }

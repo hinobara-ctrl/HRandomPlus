@@ -1,4 +1,4 @@
-# osu!lazer implementation (v0.2.0-playtest)
+# osu!lazer implementation (current v0.2.x)
 
 ## Audited upstream baseline
 
@@ -28,7 +28,7 @@ The runtime log is live selection state, `client.realm` supplies metadata and re
 4. `RealmLazerBeatmapCatalog` opens `client.realm` with `IsReadOnly = true` and `IsDynamic = true`, using the schema stored on disk instead of assuming a lazer schema version; it never starts a transaction or writes Realm/storage data.
 5. `LazerBeatmapResolver` validates the selected `.osu` blob against its SHA-256 and materialises a temporary parser input. Materialisations older than seven days are removed opportunistically.
 6. The unchanged HRandomPlus engine produces the new difficulty.
-7. `LazerArchiveImporter` builds a temporary `.osz` containing the generated `.osu` and the original set resources. The archive copy receives detached online IDs while the retained generated output and every lazer source file remain untouched.
+7. `LazerArchiveImporter` builds a temporary `.osz` containing the generated `.osu` and the original set resources. It rejects a missing main audio blob, preserves case-distinct ZIP names, and keeps traversal protection. The archive copy receives detached online IDs while the retained generated output and every lazer source file remain untouched.
 8. The `.osz` is passed to the detected lazer executable. On launch failure it is preserved in the HRandomPlus output folder for manual import; successful temporary archives are deleted after a grace period and stale archives are cleaned at startup.
 
 The only filesystem writes in detection are under the system temporary directory. `client.realm`, `files/`, `logs/`, `storage.ini` and the original beatmap are read-only inputs.
@@ -55,7 +55,7 @@ See `THIRD_PARTY_NOTICES.md` and `licenses/Apache-2.0.txt` for distribution noti
 
 ## Real-machine smoke checklist
 
-Run the matching v0.2.0 build and record the exact lazer version.
+Run the matching v0.2.x build and record the exact lazer version.
 
 ### Windows x64
 
