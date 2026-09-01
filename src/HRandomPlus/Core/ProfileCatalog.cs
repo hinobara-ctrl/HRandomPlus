@@ -148,6 +148,8 @@ public static class ProfileSettingsMigration
                 changed = true;
             }
 
+            changed |= profile.Config.NormalizePersistedValues();
+
             string originalName = profile.Name?.Trim() ?? string.Empty;
             string baseName = string.IsNullOrWhiteSpace(originalName) ? "Imported Profile" : originalName;
             if (ProfileCatalog.IsReservedName(baseName)) baseName += " (Imported)";
@@ -171,6 +173,8 @@ public static class ProfileSettingsMigration
                 changed = true;
             }
         }
+
+        changed |= settings.CustomConfig.NormalizePersistedValues();
 
         return changed;
     }

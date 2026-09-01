@@ -13,4 +13,13 @@ public static class BeatSnapReference
             throw new ArgumentOutOfRangeException(nameof(divisor), "Snap divisor must be greater than zero.");
         return 60000d / bpm / divisor;
     }
+
+    public static string DescribeBpmRange(IReadOnlyCollection<double> bpms)
+    {
+        if (bpms.Count == 0) return "BPM: —";
+        double minimum = bpms.Min();
+        double maximum = bpms.Max();
+        string Format(double value) => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        return minimum == maximum ? $"BPM: {Format(minimum)}" : $"BPM range: {Format(minimum)}–{Format(maximum)}";
+    }
 }

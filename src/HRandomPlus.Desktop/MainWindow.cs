@@ -36,10 +36,11 @@ public sealed class MainWindow : Window
     private readonly TextBox rangeBox = new() { Text = "00:37:005 - 01:13:005 -" };
     private readonly TextBox seedBox = new() { PlaceholderText = "Random" };
     private readonly CheckBox dynamicThreshold = new() { Content = "Dynamic threshold" };
+    private readonly CheckBox preserveDualStages = new() { Content = "Preserve dual stages (10K+)", IsEnabled = false };
     private readonly CheckBox renameDifficulty = new() { Content = "Rename difficulty" };
     private readonly CheckBox outputToBeatmapFolder = new() { Content = "Write beside the original beatmap" };
     private readonly TextBox bpmBox = new() { PlaceholderText = "Select a beatmap" };
-    private readonly TextBlock detectedBpms = Text("Detected BPMs: —");
+    private readonly TextBlock detectedBpms = Text("BPM: —");
     private readonly Dictionary<int, TextBlock> snapValues = new();
     private readonly TextBox tosuHost = new();
     private readonly TextBox tosuPort = new();
@@ -158,6 +159,7 @@ public sealed class MainWindow : Window
         var parameters = new StackPanel { Spacing = 7, Margin = new Thickness(12) };
         parameters.Children.Add(Text("Active parameters", 18, FontWeight.SemiBold));
         parameters.Children.Add(dynamicThreshold);
+        parameters.Children.Add(preserveDualStages);
         AddEditor(parameters, "MinThresholdMs", "Minimum threshold (ms)");
         AddEditor(parameters, "BaseThresholdMs", "Base threshold (ms)");
         AddEditor(parameters, "MaxThresholdMs", "Maximum threshold (ms)");
@@ -165,7 +167,6 @@ public sealed class MainWindow : Window
         bpmBox.TextChanged += (_, _) => UpdateSnapReference();
         parameters.Children.Add(Labeled("Reference BPM", bpmBox));
         parameters.Children.Add(detectedBpms);
-        parameters.Children.Add(Text("Formula: 60000 ÷ BPM ÷ snap. The BPM field is editable."));
         parameters.Children.Add(BuildSnapReference());
         AddEditor(parameters, "RecentUsageWindow", "Recent usage window");
         AddEditor(parameters, "PatternHistoryLength", "Pattern history length");
@@ -280,10 +281,9 @@ public sealed class MainWindow : Window
         beatmapDetails.Text = $"[{document.Version}]  ·  {document.Creator}  ·  {document.Keys}K";
         beatmapPath.Text = path;
         IReadOnlyList<double> bpms = document.GetBpms();
-        detectedBpms.Text = bpms.Count == 0
-            ? "Detected BPMs: none"
-            : "Detected BPMs: " + string.Join(", ", bpms.Select(FormatNumber));
+        detectedBpms.Text = BeatSnapReference.DescribeBpmRange(bpms);
         bpmBox.Text = bpms.Count == 0 ? string.Empty : FormatNumber(bpms[0]);
+        preserveDualStages.IsEnabled = DualStageLayout.IsEligible(document.Keys);
         randomizeButton.IsEnabled = true;
         SetStatus(state);
         store.Log($"Beatmap selected: {path}");
@@ -668,6 +668,7 @@ public sealed class MainWindow : Window
     {
         seedBox.Text = config.Seed?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         dynamicThreshold.IsChecked = config.DynamicThreshold;
+        preserveDualStages.IsChecked = config.PreserveDualStages;
         renameDifficulty.IsChecked = config.RenameDifficulty;
         Set("MinThresholdMs", config.MinThresholdMs); Set("BaseThresholdMs", config.BaseThresholdMs);
         Set("MaxThresholdMs", config.MaxThresholdMs); Set("RecentUsageWindow", config.RecentUsageWindow);
@@ -683,27 +684,14 @@ public sealed class MainWindow : Window
 
     private HRandomConfig ReadConfig()
     {
-        var config = new HRandomConfig
-        {
-            Seed = string.IsNullOrWhiteSpace(seedBox.Text)
-                ? null
-                : long.Parse(seedBox.Text, CultureInfo.InvariantCulture),
-            DynamicThreshold = dynamicThreshold.IsChecked == true,
-            RenameDifficulty = renameDifficulty.IsChecked == true,
-            MinThresholdMs = Int("MinThresholdMs"), BaseThresholdMs = Int("BaseThresholdMs"), MaxThresholdMs = Int("MaxThresholdMs"),
-            RecentUsageWindow = Int("RecentUsageWindow"), PatternHistoryLength = Int("PatternHistoryLength"),
-            WeightedTopCandidates = Int("WeightedTopCandidates"), WeightedTemperature = Double("WeightedTemperature"),
-            MaxCandidateSets = Int("MaxCandidateSets"), DifficultySuffix = Value("DifficultySuffix"),
-            Weights = new ScoringWeights
-            {
-                TimeSinceLastUseBonus = Double("TimeSinceLastUseBonus"), HandBalanceBonus = Double("HandBalanceBonus"),
-                DistributionBonus = Double("DistributionBonus"), JackPenalty = Double("JackPenalty"),
-                TrillPenalty = Double("TrillPenalty"), RepeatedPatternPenalty = Double("RepeatedPatternPenalty"),
-                SameHandPenalty = Double("SameHandPenalty"), ExtremeJumpPenalty = Double("ExtremeJumpPenalty"),
-                RecentUsagePenalty = Double("RecentUsagePenalty")
-            }
-        };
-        config.Validate();
+        var values = editors.ToDictionary(pair => pair.Key, pair => pair.Value.Text ?? string.Empty,
+            StringComparer.Ordinal);
+        HRandomConfig config = HRandomConfigInputParser.Parse(new HRandomConfigInput(
+            seedBox.Text ?? string.Empty,
+            dynamicThreshold.IsChecked == true,
+            preserveDualStages.IsChecked == true,
+            renameDifficulty.IsChecked == true,
+            values));
         activeConfig = config;
         return config.Clone();
     }
@@ -717,10 +705,11 @@ public sealed class MainWindow : Window
 
     private Control BuildSnapReference()
     {
-        int rowCount = (BeatSnapReference.CommonDivisors.Count + 1) / 2;
+        const int columnCount = 3;
+        int rowCount = (BeatSnapReference.CommonDivisors.Count + columnCount - 1) / columnCount;
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,*"),
+            ColumnDefinitions = new ColumnDefinitions(string.Join(',', Enumerable.Repeat("*", columnCount))),
             RowDefinitions = new RowDefinitions(string.Join(',', Enumerable.Repeat("Auto", rowCount))),
             ColumnSpacing = 8,
             RowSpacing = 3,
@@ -729,15 +718,12 @@ public sealed class MainWindow : Window
         for (int index = 0; index < BeatSnapReference.CommonDivisors.Count; index++)
         {
             int divisor = BeatSnapReference.CommonDivisors[index];
-            int row = index / 2;
-            int column = (index % 2) * 2;
-            TextBlock label = Text($"BPM/{divisor} (1/{divisor})");
-            var value = Text("—");
+            int row = index / columnCount;
+            int column = index % columnCount;
+            var value = Text($"1/{divisor} · —");
             value.FontWeight = FontWeight.SemiBold;
             snapValues[divisor] = value;
-            Grid.SetRow(label, row); Grid.SetColumn(label, column);
-            Grid.SetRow(value, row); Grid.SetColumn(value, column + 1);
-            grid.Children.Add(label);
+            Grid.SetRow(value, row); Grid.SetColumn(value, column);
             grid.Children.Add(value);
         }
         return grid;
@@ -750,17 +736,14 @@ public sealed class MainWindow : Window
                       double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out bpm);
         foreach ((int divisor, TextBlock value) in snapValues)
             value.Text = parsed && double.IsFinite(bpm) && bpm > 0
-                ? $"{BeatSnapReference.Milliseconds(bpm, divisor):0.###} ms"
-                : "—";
+                ? $"1/{divisor} · {BeatSnapReference.Milliseconds(bpm, divisor):0.###} ms"
+                : $"1/{divisor} · —";
     }
 
     private static string FormatNumber(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private void Set(string key, object value) => editors[key].Text = Convert.ToString(value, CultureInfo.InvariantCulture);
-    private string Value(string key) => editors[key].Text ?? string.Empty;
-    private int Int(string key) => int.Parse(Value(key), CultureInfo.InvariantCulture);
-    private double Double(string key) => double.Parse(Value(key), CultureInfo.InvariantCulture);
     private void SaveSettings() { try { store.Save(settings); } catch (Exception ex) { store.Log($"Could not save settings: {ex.Message}"); } }
     private void SetStatus(string message) => status.Text = message;
     private void ShowError(Exception ex) { SetStatus("Error: " + ex.Message); store.Log($"ERROR {ex}"); }

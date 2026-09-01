@@ -136,6 +136,7 @@ public class ApplicationTests
         {
             Seed = -123456789,
             DynamicThreshold = false,
+            PreserveDualStages = true,
             MinThresholdMs = 11,
             BaseThresholdMs = 22,
             MaxThresholdMs = 33,
@@ -168,6 +169,7 @@ public class ApplicationTests
 
         Assert.Equal(expected.Seed, actual.Seed);
         Assert.Equal(expected.DynamicThreshold, actual.DynamicThreshold);
+        Assert.Equal(expected.PreserveDualStages, actual.PreserveDualStages);
         Assert.Equal(expected.MinThresholdMs, actual.MinThresholdMs);
         Assert.Equal(expected.BaseThresholdMs, actual.BaseThresholdMs);
         Assert.Equal(expected.MaxThresholdMs, actual.MaxThresholdMs);
@@ -627,6 +629,7 @@ public class ApplicationTests
     {
         Seed = -123456789,
         DynamicThreshold = false,
+        PreserveDualStages = true,
         MinThresholdMs = 11,
         BaseThresholdMs = 22,
         MaxThresholdMs = 33,
@@ -655,6 +658,7 @@ public class ApplicationTests
     {
         Assert.Equal(expected.Seed, actual.Seed);
         Assert.Equal(expected.DynamicThreshold, actual.DynamicThreshold);
+        Assert.Equal(expected.PreserveDualStages, actual.PreserveDualStages);
         Assert.Equal(expected.MinThresholdMs, actual.MinThresholdMs);
         Assert.Equal(expected.BaseThresholdMs, actual.BaseThresholdMs);
         Assert.Equal(expected.MaxThresholdMs, actual.MaxThresholdMs);

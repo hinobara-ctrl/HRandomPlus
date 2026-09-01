@@ -1,5 +1,6 @@
 {
   "dynamicThreshold": true,
+  "preserveDualStages": false,
   "minThresholdMs": 40,
   "baseThresholdMs": 100,
   "maxThresholdMs": 160,

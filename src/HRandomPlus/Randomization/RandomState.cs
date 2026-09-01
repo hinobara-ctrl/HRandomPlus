@@ -108,18 +108,38 @@ public sealed class RandomState
             recentPatterns.RemoveAt(0);
     }
 
-    public int AlternationContinuationLength(int candidate)
+    public int AlternationContinuationLength(IReadOnlyCollection<int> candidateColumns, int time, long maximumGap)
     {
-        var sequence = recentPatterns.Where(p => p.Columns.Length == 1)
-                                     .Select(p => p.Columns[0])
-                                     .Append(candidate)
-                                     .ToArray();
-        if (sequence.Length < 4)
-            return 0;
+        if (recentPatterns.Count == 0 || maximumGap < 0) return 0;
+        int[] current = candidateColumns.Distinct().ToArray();
+        PatternSnapshot previous = recentPatterns[^1];
+        if ((long)time - previous.Time > maximumGap) return 0;
 
-        int length = 2;
-        for (int i = sequence.Length - 1; i >= 2 && sequence[i] == sequence[i - 2] && sequence[i] != sequence[i - 1]; i--)
-            length++;
-        return length >= 4 ? length : 0;
+        int best = 0;
+        foreach (int currentAnchor in current)
+        foreach (int previousAnchor in previous.Columns)
+        {
+            if (currentAnchor == previousAnchor || current.Contains(previousAnchor) || previous.Columns.Contains(currentAnchor))
+                continue;
+
+            int length = 2;
+            int expected = currentAnchor;
+            int other = previousAnchor;
+            int laterTime = previous.Time;
+            for (int index = recentPatterns.Count - 2; index >= 0; index--)
+            {
+                PatternSnapshot pattern = recentPatterns[index];
+                if ((long)laterTime - pattern.Time > maximumGap)
+                    break;
+
+                if (!pattern.Columns.Contains(expected) || pattern.Columns.Contains(other))
+                    break;
+                length++;
+                laterTime = pattern.Time;
+                (expected, other) = (other, expected);
+            }
+            best = Math.Max(best, length);
+        }
+        return best >= 4 ? best : 0;
     }
 }

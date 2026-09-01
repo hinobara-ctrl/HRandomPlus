@@ -22,8 +22,14 @@ public static class PatternAnalyzer
         if (!config.DynamicThreshold || state.RecentPatterns.Count == 0)
             return config.BaseThresholdMs;
 
+        PatternSnapshot latest = state.RecentPatterns[^1];
+        long resetGap = Math.Min(int.MaxValue,
+            (long)config.MaxThresholdMs * HRandomConfig.DynamicThresholdPauseMultiplier);
+        if ((long)currentTime - latest.Time > resetGap)
+            return config.BaseThresholdMs;
+
         PatternSnapshot[] window = state.RecentPatterns.TakeLast(8).ToArray();
-        int elapsed = currentTime - window[0].Time;
+        long elapsed = (long)currentTime - window[0].Time;
         int events = window.Sum(p => p.Columns.Length) + currentNoteCount;
         if (elapsed <= 0 || events <= 1)
             return config.MaxThresholdMs;
@@ -38,7 +44,7 @@ public static class PatternAnalyzer
     }
 
     public static PatternStatistics Analyze(IReadOnlyList<ManiaHitObject> objects, int keys,
-                                            int jackThreshold, bool assigned)
+                                            int jackThreshold, int maximumThreshold, bool assigned)
     {
         int columnOf(ManiaHitObject h) => assigned ? h.AssignedColumn : h.OriginalColumn;
         int[] usage = new int[keys];
@@ -54,24 +60,15 @@ public static class PatternAnalyzer
         }
 
         int trills = 0;
-        var sequence = new List<(int Time, int Column)>();
+        var state = new RandomState(keys, 4, 256);
+        long trillTimeout = Math.Min(int.MaxValue,
+            (long)maximumThreshold * HRandomConfig.TrillPauseMultiplier);
         foreach (var group in objects.GroupBy(h => h.StartTime).OrderBy(g => g.Key))
         {
-            if (group.Count() != 1)
-            {
-                sequence.Clear();
-                continue;
-            }
-            var current = (Time: group.Key, Column: columnOf(group.Single()));
-            sequence.Add(current);
-            if (sequence.Count >= 4 &&
-                sequence[^1].Column == sequence[^3].Column &&
-                sequence[^2].Column == sequence[^4].Column &&
-                sequence[^1].Column != sequence[^2].Column &&
-                sequence[^1].Time - sequence[^4].Time <= 1000)
+            int[] columns = group.Select(columnOf).OrderBy(column => column).ToArray();
+            if (state.AlternationContinuationLength(columns, group.Key, trillTimeout) >= 4)
                 trills++;
-            if (sequence.Count > 16)
-                sequence.RemoveAt(0);
+            state.RecordGroup(group.Key, columns);
         }
 
         return new PatternStatistics

@@ -4,6 +4,7 @@ using HRandomPlus.Integration.Beatmaps;
 using HRandomPlus.Integration.Linux;
 using HRandomPlus.Integration.Tosu;
 using HRandomPlus.Beatmaps;
+using System.Globalization;
 
 namespace HRandomPlus.Cli;
 
@@ -41,7 +42,7 @@ public static class Program
             switch (args[i])
             {
                 case "--host": host = Value(); break;
-                case "--port": port = int.Parse(Value()); break;
+                case "--port": port = int.Parse(Value(), CultureInfo.InvariantCulture); break;
                 case "--osu-path": osuRoot = Value(); break;
                 default: throw new ArgumentException($"Opción de diagnóstico desconocida: {args[i]}");
             }
@@ -62,10 +63,10 @@ public static class Program
             if (string.IsNullOrWhiteSpace(locatedRoot)) locator.TryLocate(out locatedRoot, out winelloStatus);
             else winelloStatus = "Manual native osu! path configured";
         }
-        Console.WriteLine($"Winello status: {winelloStatus}");
-        Console.WriteLine($"osu root: {Display(locatedRoot, "Not detected")}");
+        Console.WriteLine($"Winello status: {DiagnosticPathRedactor.Redact(winelloStatus)}");
+        Console.WriteLine($"osu root: {DisplayPath(locatedRoot, "Not detected")}");
         string? songsPath = ResolveSongsPath(locatedRoot);
-        Console.WriteLine($"Songs path: {Display(songsPath, "Not resolved")}");
+        Console.WriteLine($"Songs path: {DisplayPath(songsPath, "Not resolved")}");
 
         using var http = new HttpClient();
         using var client = new TosuClient(http, host, port);
@@ -76,7 +77,7 @@ public static class Program
             Console.WriteLine("Current beatmap: Not detected");
             Console.WriteLine("Resolved .osu path: Not resolved");
             Console.WriteLine("Exists: No");
-            Console.WriteLine($"Output path: {AppPaths.OutputDirectory}");
+            Console.WriteLine($"Output path: {DiagnosticPathRedactor.Redact(AppPaths.OutputDirectory)}");
             Console.WriteLine("Output writable: Not verified (read-only diagnostic)");
             return tosu.IsAvailable ? 4 : 3;
         }
@@ -85,13 +86,13 @@ public static class Program
         Console.WriteLine($"Current beatmap: {map.Artist} - {map.Title} [{map.Difficulty}]");
         var resolver = new BeatmapPathResolver();
         PathResolution resolution = resolver.Resolve(map, locatedRoot);
-        Console.WriteLine($"Resolved .osu path: {Display(resolution.Path, "Not resolved")}");
+        Console.WriteLine($"Resolved .osu path: {DisplayPath(resolution.Path, "Not resolved")}");
         Console.WriteLine($"Exists: {(resolution.Path is not null && File.Exists(resolution.Path) ? "Yes" : "No")}");
         string outputPath = resolution.Path is null
             ? AppPaths.OutputDirectory
             : BeatmapGenerationService.FindUniquePath(resolution.Path, " H-RANDOM+",
                 settings.OutputToBeatmapFolder ? null : AppPaths.OutputDirectory);
-        Console.WriteLine($"Output path: {outputPath}");
+        Console.WriteLine($"Output path: {DiagnosticPathRedactor.Redact(outputPath)}");
         Console.WriteLine("Output writable: Not verified (read-only diagnostic)");
         return resolution.Success ? 0 : 4;
     }
@@ -113,7 +114,7 @@ public static class Program
                 case "--output": case "-o": output = Value(); break;
                 case "--config": configPath = Value(); break;
                 case "--report": reportPath = Value(); break;
-                case "--seed": seed = long.Parse(Value()); break;
+                case "--seed": seed = long.Parse(Value(), CultureInfo.InvariantCulture); break;
                 case "--difficulty": case "-d": difficulties.Add(Value()); break;
                 case "--overwrite": overwrite = true; break;
                 default: throw new ArgumentException($"Opción desconocida: {args[i]}");
@@ -164,8 +165,8 @@ public static class Program
     private static string PlatformName()
         => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsLinux() ? "Linux" : Environment.OSVersion.Platform.ToString();
 
-    private static string Display(string? value, string fallback)
-        => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static string DisplayPath(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : DiagnosticPathRedactor.Redact(value) ?? fallback;
 
     private static string? ResolveSongsPath(string? root)
     {

@@ -10,6 +10,8 @@ Versión de desarrollo: **v0.2.1-playtest**.
 - Importación y exportación segura de perfiles `.hrp-profile.json` entre Windows y Linux.
 - Seeds reproducibles, guardadas también en perfiles personalizados, y rangos parciales.
 - Protección de long notes y validación antes de escribir.
+- Modo opcional **Preserve dual stages (10K+)**: evita cruces directos entre los stages laterales y trata el centro impar como compartido; permanece deshabilitado en mapas inferiores a 10K.
+- Detección de trills consistente entre scoring y estadísticas, incluidos acordes compatibles y corte tras pausas prolongadas.
 - Detección de osu!stable en Windows aunque osu!lazer esté abierto.
 - Detección read-only de osu!lazer mediante su log y catálogo Realm, sin tosu ni lectura de memoria.
 - Importación segura a lazer mediante una variante local `.osz`; no modifica `client.realm` ni los blobs originales.
@@ -17,7 +19,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 - Estado de origen inequívoco: Windows indica osu!stable, Linux indica tosu y la selección manual permanece diferenciada.
 - Selector manual `.osu` para osu!stable en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
-- Referencia visual editable de BPM a milisegundos para snaps de 1/1 a 1/64.
+- Referencia compacta y editable de BPM a milisegundos para snaps de 1/1 a 1/64; los mapas con varios BPM muestran únicamente su rango.
 - Versión y nombre de archivo únicos incluso al repetir el mismo perfil antes de que osu! refresque.
 
 ## Windows
@@ -88,6 +90,8 @@ dotnet HRandomPlus.Cli.dll --diagnose --osu-path /ruta/nativa/osu
 
 El diagnóstico es de solo lectura. Imprime plataforma, fuentes, URL/estado de tosu, Winello, raíz osu!, `Songs`, mapa, ruta `.osu`, existencia y output previsto. No genera ni importa archivos. Códigos: `0` correcto, `3` tosu no disponible y `4` conectado pero sin beatmap resoluble.
 
+Las rutas dentro del directorio personal se redactan como `%USERPROFILE%` en Windows o `$HOME` en Linux para que la salida pueda compartirse con menor exposición de datos locales.
+
 ## Configuración
 
 Windows conserva `%LOCALAPPDATA%\HRandomPlus`. Linux sigue XDG:
@@ -97,6 +101,12 @@ Windows conserva `%LOCALAPPDATA%\HRandomPlus`. Linux sigue XDG:
 - Log: `$XDG_STATE_HOME/HRandomPlus/logs/latest.log`.
 
 Una configuración con JSON corrupto se respalda antes de restaurar defaults. Los fallos transitorios de lectura o permisos no sobrescriben el archivo original ni impiden iniciar la aplicación.
+
+`MaxCandidateSets` admite de 1 a 8192 (default 4096) y `WeightedTopCandidates` no puede superarlo. Los valores persistidos por versiones anteriores se ajustan de forma conservadora al cargar. `DifficultySuffix` permite Unicode normal, pero rechaza caracteres y terminaciones que producirían filenames no portables entre Windows y Linux.
+
+`PreserveDualStages` es configurable por perfil. Cuando está activo en 10K o superior, las notas laterales se randomizan dentro de su stage sin cruzar directamente al opuesto. En keymodes impares la columna central es compartida: puede intercambiar notas con ambos stages, pero continúa siendo neutral únicamente para el cálculo de Hand Balance. En mapas inferiores a 10K la opción no se aplica y aparece deshabilitada.
+
+Un acorde continúa un trill cuando contiene la columna alternante esperada pero no la columna anterior; las demás columnas actúan como acompañamiento. Un acorde con ambas columnas rompe la secuencia. Una separación mayor que `4 × MaxThresholdMs` corta el trill y una pausa mayor que `8 × MaxThresholdMs` devuelve Dynamic Threshold a `BaseThresholdMs`.
 
 ## Perfiles
 

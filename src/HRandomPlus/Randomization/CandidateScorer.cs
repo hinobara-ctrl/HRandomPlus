@@ -22,6 +22,10 @@ public sealed class CandidateScorer
 
         int repeats = state.RecentPatterns.Count(p => p.Columns.SequenceEqual(sorted));
         score -= repeats * config.Weights.RepeatedPatternPenalty;
+        long trillTimeout = Math.Min(int.MaxValue, (long)config.MaxThresholdMs * HRandomConfig.TrillPauseMultiplier);
+        int alternationLength = state.AlternationContinuationLength(sorted, time, trillTimeout);
+        if (alternationLength >= 4)
+            score -= config.Weights.TrillPenalty * (alternationLength - 3);
         return score;
     }
 
@@ -49,16 +53,12 @@ public sealed class CandidateScorer
                      Math.Max(1, config.RecentUsageWindow);
 
         PatternSnapshot? lastPattern = state.RecentPatterns.LastOrDefault();
-        if (lastPattern is { Columns.Length: 1 } && time - lastPattern.Time <= threshold * 2 && state.Keys > 1)
+        if (lastPattern is { Columns.Length: 1 } && time - (long)lastPattern.Time <= (long)threshold * 2L && state.Keys > 1)
         {
             double distance = Math.Abs(column - lastPattern.Columns[0]) / (double)(state.Keys - 1);
             if (distance >= 0.75)
                 score -= weights.ExtremeJumpPenalty * distance;
         }
-
-        int alternationLength = state.AlternationContinuationLength(column);
-        if (alternationLength >= 4)
-            score -= weights.TrillPenalty * (alternationLength - 3);
 
         return score;
     }

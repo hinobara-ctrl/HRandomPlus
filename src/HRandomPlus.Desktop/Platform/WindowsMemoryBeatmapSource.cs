@@ -18,7 +18,9 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
     private readonly AppSettings settings;
     private StructuredOsuMemoryReader? reader;
     private int? stableProcessId;
+    private DateTimeOffset? stableProcessStartTime;
     private DateTimeOffset readerCreatedAt;
+    private string? processSelectionMessage;
 
     public WindowsMemoryBeatmapSource(AppSettings settings)
     {
@@ -34,15 +36,15 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         if (process is null)
         {
             ResetReader();
-            return BeatmapSourceResult.Unavailable("osu!stable not detected");
+            return BeatmapSourceResult.Unavailable(processSelectionMessage ?? "osu!stable not detected");
         }
         try
         {
-            EnsureReader(process.Id);
+            EnsureReader(process.Id, process.StartTime);
             if (reader is null || !reader.CanRead)
             {
                 if (DateTimeOffset.UtcNow - readerCreatedAt >= TimeSpan.FromSeconds(2))
-                    RecreateReader(process.Id);
+                    RecreateReader(process.Id, process.StartTime);
                 return BeatmapSourceResult.Waiting("osu!stable detected; connecting to its memory reader");
             }
             if (!reader.TryRead(reader.OsuMemoryAddresses.Beatmap))
@@ -65,18 +67,19 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         catch (Exception ex) { return BeatmapSourceResult.Unavailable($"Memory detection unavailable: {ex.Message}"); }
     }
 
-    private void EnsureReader(int processId)
+    private void EnsureReader(int processId, DateTimeOffset processStartTime)
     {
-        if (reader is not null && stableProcessId == processId) return;
-        RecreateReader(processId);
+        if (reader is not null && stableProcessId == processId && stableProcessStartTime == processStartTime) return;
+        RecreateReader(processId, processStartTime);
     }
 
-    private void RecreateReader(int processId)
+    private void RecreateReader(int processId, DateTimeOffset processStartTime)
     {
         ResetReader();
         reader = new StructuredOsuMemoryReader(new ProcessTargetOptions("osu!", null!, false));
         reader.ProcessWatcherDelayMs = 250;
         stableProcessId = processId;
+        stableProcessStartTime = processStartTime;
         readerCreatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -85,12 +88,13 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         reader?.Dispose();
         reader = null;
         stableProcessId = null;
+        stableProcessStartTime = null;
         readerCreatedAt = default;
     }
 
     private Process? FindStableProcess()
     {
-        var candidates = new List<(Process Process, string Directory)>();
+        var candidates = new List<(Process Process, string Directory, DateTimeOffset StartTime)>();
         foreach (Process process in Process.GetProcessesByName("osu!"))
         {
             bool retained = false;
@@ -99,7 +103,7 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
                 string? directory = Path.GetDirectoryName(process.MainModule?.FileName);
                 if (directory is not null && Directory.Exists(Path.Combine(directory, "Songs")))
                 {
-                    candidates.Add((process, Path.GetFullPath(directory)));
+                    candidates.Add((process, Path.GetFullPath(directory), process.StartTime));
                     retained = true;
                 }
             }
@@ -112,18 +116,17 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         Process? selected = null;
         try
         {
-            if (!string.IsNullOrWhiteSpace(settings.OsuPath))
-            {
-                string configured = Path.GetFullPath(settings.OsuPath);
-                selected = candidates.FirstOrDefault(c => c.Directory.Equals(configured, StringComparison.OrdinalIgnoreCase)).Process;
-                if (selected is not null) return selected;
-            }
-            selected = candidates.OrderByDescending(c => c.Process.StartTime).Select(c => c.Process).FirstOrDefault();
+            StableProcessSelection choice = StableProcessSelector.Select(
+                candidates.Select(candidate => new StableProcessCandidate(candidate.Process.Id,
+                    candidate.Directory, candidate.StartTime)), settings.OsuPath, stableProcessId, stableProcessStartTime);
+            processSelectionMessage = choice.Status == StableProcessSelectionStatus.Ambiguous ? choice.Message : null;
+            if (choice.Candidate is not null)
+                selected = candidates.First(candidate => candidate.Process.Id == choice.Candidate.ProcessId).Process;
             return selected;
         }
         finally
         {
-            foreach ((Process process, _) in candidates)
+            foreach ((Process process, _, _) in candidates)
                 if (!ReferenceEquals(process, selected)) process.Dispose();
         }
     }

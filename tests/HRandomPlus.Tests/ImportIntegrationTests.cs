@@ -240,6 +240,61 @@ public class ImportIntegrationTests
     public void WinelloArchiveImporterPreservesOutputAndArchiveWhenProcessIsMissing()
         => VerifyImportFailure(new ProcessRunResult(false, false, null, "", "", "not found"), "could not be started");
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void WinelloCleanupNeverMasksThePrimaryResult(bool operationSucceeds, bool cleanupSucceeds)
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            string temporaryBase = Path.Combine(Path.GetDirectoryName(fallback)!, "temporary-base");
+            var cleaner = new FakeCleaner(cleanupSucceeds);
+            var warnings = new List<string>();
+            var runner = new FakeRunner((_, _) => operationSucceeds
+                ? new ProcessRunResult(true, false, 0, "ok", "", null)
+                : throw new IOException("primary operation failed"));
+
+            BeatmapImportResult result = new WinelloArchiveImporter(runner, temporaryBase: temporaryBase,
+                    cleaner: cleaner, warningSink: warnings.Add)
+                .ImportAsync(new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.Equal(operationSucceeds, result.Success);
+            if (!operationSucceeds) Assert.Contains("primary operation failed", result.Message);
+            Assert.Equal(1, cleaner.Calls);
+            Assert.Equal(cleanupSucceeds ? 0 : 1, warnings.Count);
+        });
+    }
+
+    [Fact]
+    public void SafeTemporaryCleanerAcceptsMissingChildAndRejectsUnexpectedPath()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusCleanup", Guid.NewGuid().ToString("N"));
+        string child = Path.Combine(root, "missing");
+        string outside = Path.Combine(Path.GetTempPath(), "outside", Guid.NewGuid().ToString("N"));
+        var cleaner = new SafeTemporaryDirectoryCleaner();
+        Assert.True(cleaner.TryDelete(child, root, out string? missingWarning));
+        Assert.True(missingWarning is null);
+        Assert.True(!cleaner.TryDelete(outside, root, out string? warning));
+        Assert.Contains("unexpected path", warning!);
+    }
+
+    [Fact]
+    public void SafeTemporaryCleanerReportsIoFailureWithoutThrowing()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusCleanup", Guid.NewGuid().ToString("N"));
+        string child = Path.Combine(root, "child");
+        Directory.CreateDirectory(child);
+        try
+        {
+            var cleaner = new SafeTemporaryDirectoryCleaner((_, _) => throw new IOException("locked"));
+            Assert.True(!cleaner.TryDelete(child, root, out string? warning));
+            Assert.Contains("locked", warning!);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static void VerifyImportFailure(ProcessRunResult processResult, string expectedMessage)
     {
         WithImportLayout((original, generated, fallback) =>
@@ -277,5 +332,16 @@ public class ImportIntegrationTests
     {
         public Task<ProcessRunResult> RunAsync(ProcessRunRequest request, CancellationToken cancellationToken = default)
             => Task.FromResult(run(request, cancellationToken));
+    }
+
+    private sealed class FakeCleaner(bool succeeds) : ITemporaryDirectoryCleaner
+    {
+        public int Calls { get; private set; }
+        public bool TryDelete(string directory, string expectedRoot, out string? warning)
+        {
+            Calls++;
+            warning = succeeds ? null : "cleanup failed";
+            return succeeds;
+        }
     }
 }

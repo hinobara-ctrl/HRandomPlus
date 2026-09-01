@@ -104,6 +104,7 @@ El archivo exportado es un medio de transporte. Después de importarlo, la aplic
   "engineVersion": 1,
   "config": {
     "DynamicThreshold": true,
+    "PreserveDualStages": false,
     "MinThresholdMs": 40,
     "BaseThresholdMs": 100,
     "MaxThresholdMs": 160,

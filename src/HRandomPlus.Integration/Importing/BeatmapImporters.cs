@@ -18,6 +18,46 @@ public interface IBeatmapImporter
     Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request, CancellationToken cancellationToken = default);
 }
 
+public interface ITemporaryDirectoryCleaner
+{
+    bool TryDelete(string directory, string expectedRoot, out string? warning);
+}
+
+public sealed class SafeTemporaryDirectoryCleaner : ITemporaryDirectoryCleaner
+{
+    private readonly Action<string, bool> delete;
+
+    public SafeTemporaryDirectoryCleaner(Action<string, bool>? delete = null)
+        => this.delete = delete ?? Directory.Delete;
+
+    public bool TryDelete(string directory, string expectedRoot, out string? warning)
+    {
+        warning = null;
+        try
+        {
+            string root = Path.GetFullPath(expectedRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                          + Path.DirectorySeparatorChar;
+            string target = Path.GetFullPath(directory);
+            StringComparison comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (!target.StartsWith(root, comparison))
+            {
+                warning = $"Temporary cleanup refused an unexpected path: {target}";
+                return false;
+            }
+            if (!Directory.Exists(target)) return true;
+            delete(target, true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            warning = $"Temporary cleanup failed: {ex.Message}";
+            return false;
+        }
+    }
+}
+
 public sealed class DirectFileImporter : IBeatmapImporter
 {
     public Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request, CancellationToken cancellationToken = default)
@@ -419,12 +459,19 @@ public sealed class WinelloArchiveImporter : IBeatmapImporter
     private readonly IProcessRunner processRunner;
     private readonly string command;
     private readonly TimeSpan timeout;
+    private readonly string temporaryBase;
+    private readonly ITemporaryDirectoryCleaner cleaner;
+    private readonly Action<string> warningSink;
 
-    public WinelloArchiveImporter(IProcessRunner processRunner, string command = "osu-wine", TimeSpan? timeout = null)
+    public WinelloArchiveImporter(IProcessRunner processRunner, string command = "osu-wine", TimeSpan? timeout = null,
+        string? temporaryBase = null, ITemporaryDirectoryCleaner? cleaner = null, Action<string>? warningSink = null)
     {
         this.processRunner = processRunner;
         this.command = command;
         this.timeout = timeout ?? TimeSpan.FromSeconds(20);
+        this.temporaryBase = temporaryBase ?? Path.Combine(Path.GetTempPath(), "HRandomPlus", "imports");
+        this.cleaner = cleaner ?? new SafeTemporaryDirectoryCleaner();
+        this.warningSink = warningSink ?? (message => Trace.TraceWarning("Winello: {0}", message));
     }
 
     public async Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request, CancellationToken cancellationToken = default)
@@ -437,7 +484,7 @@ public sealed class WinelloArchiveImporter : IBeatmapImporter
 
         string sourceDirectory = Path.GetDirectoryName(original)
             ?? throw new InvalidDataException("The original beatmap has no parent directory.");
-        string temporaryRoot = Path.Combine(Path.GetTempPath(), "HRandomPlus", "imports", Guid.NewGuid().ToString("N"));
+        string temporaryRoot = Path.Combine(temporaryBase, Guid.NewGuid().ToString("N"));
         string temporaryArchive = Path.Combine(temporaryRoot, "HRandomPlus-import.osz");
         Directory.CreateDirectory(temporaryRoot);
         try
@@ -467,7 +514,8 @@ public sealed class WinelloArchiveImporter : IBeatmapImporter
         }
         finally
         {
-            if (Directory.Exists(temporaryRoot)) Directory.Delete(temporaryRoot, recursive: true);
+            if (!cleaner.TryDelete(temporaryRoot, temporaryBase, out string? warning) && warning is not null)
+                warningSink(warning);
         }
     }
 

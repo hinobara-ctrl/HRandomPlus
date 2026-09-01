@@ -60,9 +60,9 @@ Consulta el procedimiento y las limitaciones en [docs/LAZER_IMPLEMENTATION.md](d
 
 ## Delta v0.2.1 — comprobación manual del propietario en Linux
 
-Las marcas anteriores registran pruebas reales ya completadas, incluido `storage.ini` personalizado en ambos sistemas. Los siguientes casos corresponden únicamente a las rutas endurecidas en v0.2.1 y quedan preparados para ejecución manual en Linux:
+Las marcas anteriores registran pruebas reales ya completadas, incluido `storage.ini` personalizado en ambos sistemas. Las rutas endurecidas en v0.2.1 también fueron comprobadas manualmente en Linux por el propietario:
 
-- [ ] Con osu!stable/osu-winello, importar junto al mapa desde una ruta con espacios, apóstrofe, `!`, acentos o Unicode y confirmar detección sin F5.
-- [ ] Si existe una ruta real válida con algún metacarácter adicional (`&`, `%` o `^`), confirmar la misma copia Wine-side; `|`, `<` y `>` quedan cubiertos de forma automatizada porque no son nombres válidos en el lado Windows.
-- [ ] En lazer nativo, actualizar o reimportar el mismo mapa sin reiniciar lazer y confirmar que HRandomPlus usa la revisión nueva.
-- [ ] En lazer nativo, importar un mapa normal y confirmar audio/recursos; la ausencia simulada del audio principal y los nombres ZIP que sólo difieren por mayúsculas están cubiertos automáticamente.
+- [x] Con osu!stable/osu-winello, importar junto al mapa desde una ruta con espacios, apóstrofe, `!`, acentos o Unicode y confirmar detección sin F5.
+- [x] Si existe una ruta real válida con algún metacarácter adicional (`&`, `%` o `^`), confirmar la misma copia Wine-side; `|`, `<` y `>` quedan cubiertos de forma automatizada porque no son nombres válidos en el lado Windows.
+- [x] En lazer nativo, actualizar o reimportar el mismo mapa sin reiniciar lazer y confirmar que HRandomPlus usa la revisión nueva.
+- [x] En lazer nativo, importar un mapa normal y confirmar audio/recursos; la ausencia simulada del audio principal y los nombres ZIP que sólo difieren por mayúsculas están cubiertos automáticamente.

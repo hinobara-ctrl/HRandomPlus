@@ -8,6 +8,9 @@
 - `PROFILE_SYSTEM_DESIGN.md` — diseño activo de persistencia e intercambio de perfiles.
 - `LINUX_IMPORT_AB_TEST.md` — comportamiento establecido de importación osu!stable/Wine y procedimiento en máquina real.
 - `HARDENING_v0.2.1.md` — correcciones dirigidas de v0.2.1, evidencia y clasificaciones finales.
+- `HARDENING_POST_v0.2.1.md` — hardening posterior: límites, cleanup, portabilidad, privacidad, multi-stable y perfil de polling.
+- `DEVELOPMENT_AND_RELEASE.md` — guía breve para build, pruebas, estructura y verificación de releases.
+- `PRE_PUSH_REVIEW_v0.2.1.md` — informe de la revisión final automatizada anterior al push.
 - `LINUX_POST_AUDIT_TESTS_v0.2.1.md` — comprobaciones Linux de las correcciones posteriores a la auditoría, a cargo del propietario.
 - `RELEASE_NOTES_v0.2.1-playtest.md` — notas del candidato actual.
 - `ESTUDIO_TAMANO_Y_OPTIMIZACION_v0.2.1.md` — estudio histórico de tamaño; sus variantes self-contained ya no representan la política vigente.
