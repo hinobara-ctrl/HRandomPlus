@@ -25,6 +25,7 @@ public sealed class BeatmapGenerationService
         OsuBeatmapDocument original = OsuBeatmapDocument.Parse(inputPath, originalBytes);
         if (original.Mode != 3) throw new InvalidDataException("El archivo seleccionado no es osu!mania (Mode:3).");
         if (original.HitObjects.Count == 0) throw new InvalidDataException("El beatmap no contiene HitObjects.");
+        BeatmapValidator.ValidatePlayableStructure(original.HitObjects, original.Keys, assigned: false);
 
         OsuBeatmapDocument output = OsuBeatmapDocument.Parse(inputPath, originalBytes);
         List<ManiaHitObject> selected = range is null

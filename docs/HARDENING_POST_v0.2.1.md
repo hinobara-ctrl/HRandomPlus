@@ -1,16 +1,18 @@
 # Hardening posterior a v0.2.1
 
-La primera pasada no cambió scoring ni jugabilidad. Una decisión de producto posterior aprobó explícitamente los cambios de stages, trills, pausas y presentación BPM documentados al final de este archivo. La neutralidad del centro para Hand Balance, Extreme Jump, Hand Balance y la lista de snaps permanecen sin cambios.
+La primera pasada no cambió scoring ni jugabilidad. Una decisión de producto posterior aprobó explícitamente los cambios de stages, trills, pausas y presentación BPM documentados al final de este archivo. La neutralidad del centro para Hand Balance, Extreme Jump y la lista de snaps permanecen sin cambios.
 
 ## Cambios implementados
 
 - `MaxCandidateSets`: default conservado en 4.096 y máximo validado en 8.192. `WeightedTopCandidates` debe estar entre 1 y ese máximo. Configuraciones persistidas anteriores se ajustan en memoria y se guardan mediante la migración existente; entradas nuevas y perfiles importados reciben error explícito.
 - Combinatoria: el conteo es exacto para 1K–18K, usa aritmética acotada y el límite de intentos se calcula en `long`, sin overflow silencioso.
 - Winello: el cleanup temporal es best-effort, comprueba que la ruta sea hija del root creado por HRandomPlus y nunca enmascara el resultado principal. Un warning puede registrarse mediante el sink local.
+- OSZ: su cleanup temporal aplica la misma política best-effort y confinada. La validación estructural previa al randomizado ahora es la misma para entradas `.osu` directas y dificultades contenidas en `.osz`.
 - Múltiples stable: una ruta configurada tiene prioridad; una instancia actual válida se conserva; una única candidata se acepta; candidatas indistinguibles se reportan como ambiguas en vez de depender del orden de `Process.GetProcessesByName`.
 - `DifficultySuffix`: una única política portable rechaza controles, `<>:"/\\|?*` y punto/espacio final, manteniendo Unicode normal. Los nombres reservados de dispositivo no se rechazan porque el sufijo se añade al nombre original y no constituye por sí solo el stem completo.
-- Diagnóstico: la salida compartible de `--diagnose` sustituye el home por `%USERPROFILE%` o `$HOME`; los logs locales internos conservan detalle para depuración.
-- `MainWindow`: el parsing y la validación del formulario de configuración se movieron a `HRandomConfigInputParser`, testeable y sin dependencia de Avalonia. El archivo pasó de 811 a 794 líneas.
+- Perfiles: el nombre sugerido de exportación evita stems reservados de Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` y variantes aplicables) sin cambiar el nombre visible del perfil ni depender del sistema operativo anfitrión.
+- Diagnóstico: la salida compartible de `--diagnose` sustituye todas las apariciones válidas del home por `%USERPROFILE%` o `$HOME`, incluso junto a puntuación; rechaza prefijos parecidos. Los logs locales internos conservan detalle para depuración.
+- `MainWindow`: el parsing y la validación del formulario de configuración se movieron a `HRandomConfigInputParser`, testeable y sin dependencia de Avalonia. La reducción de 811 a 794 líneas corresponde a aquella extracción histórica; no se presenta como el tamaño vigente del archivo tras cambios posteriores.
 
 ## Benchmark de candidatos
 
@@ -37,11 +39,11 @@ La tabla se volvió a medir después de unificar la detección de trills. El cos
 
 No se encontró una optimización adicional inequívoca que justificara cambiar la semántica temporal. El polling se cancela al cerrar y las fuentes se disponen.
 
-La selección externa de stable ya no depende del orden de enumeración. La librería de memoria utilizada sigue creando su watcher por nombre de proceso y no expone en esta integración un binding directo al PID elegido; por ello HRandomPlus se abstiene cuando existen dos procesos stable indistinguibles en lugar de afirmar que controla uno arbitrario.
+**Limitación residual multi-stable:** la selección externa ya no depende del orden de enumeración, pero `OsuMemoryDataProvider 0.12.2` se instancia mediante `StructuredOsuMemoryReader(new ProcessTargetOptions("osu!", null!, false))`. Esa API de la integración apunta por nombre y no ofrece aquí un constructor/binding por PID. Por eso HRandomPlus se abstiene cuando existen dos procesos stable indistinguibles en vez de afirmar que lee el PID elegido.
 
 ## Cobertura añadida
 
-Se añadieron regresiones para límites/migración/overflow, combinaciones 1K–18K, sufijos Unicode e inválidos, importación de perfiles, política multi-stable (incluido PID reutilizado), redacción Windows/Linux, parsing extraído de UI y combinaciones de resultado/cleanup Winello. La matriz dual-stage cubre explícitamente 9K como control negativo y 10K–18K con la opción activada y desactivada; los límites 4×/8× se prueban en −1, exacto y +1 con varios thresholds.
+Existen regresiones para límites/migración/overflow, combinaciones 1K–18K, sufijos Unicode e inválidos, importación de perfiles, política multi-stable (incluido PID reutilizado), redacción Windows/Linux, parsing extraído de UI y combinaciones de resultado/cleanup Winello y OSZ. La matriz dual-stage cubre explícitamente 9K como control negativo y 10K–18K con la opción activada y desactivada; los límites 4×/8× se prueban en −1, exacto y +1 con varios thresholds. También se verifica la paridad de validación estructural entre `.osu` y `.osz`, nombres sugeridos reservados y redacción de múltiples rutas.
 
 ## Decisiones de producto implementadas posteriormente
 
@@ -55,4 +57,5 @@ Se añadieron regresiones para límites/migración/overflow, combinaciones 1K–
 
 ## Pendiente futuro
 
-- métricas opcionales de producto o telemetría: no implementadas.
+- Pesos de scoring finitos pero extraordinariamente grandes podrían desbordar cálculos intermedios a `Infinity`/`NaN`. La validación ya rechaza valores no finitos de entrada, pero no se cambió el dominio de valores finitos en esta pasada para evitar alterar configuraciones o gameplay; evaluar una protección interna o límites explícitos en una versión futura.
+- Métricas opcionales de producto o telemetría: no implementadas.

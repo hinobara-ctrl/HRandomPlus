@@ -1,6 +1,14 @@
 # HRandomPlus v0.2.1-playtest
 
-Esta es una actualización enfocada en corrección, robustez y reproducibilidad sobre v0.2.0. No cambia H-Random, S-Random, Custom, seeds, perfiles ni el output determinista.
+Esta actualización cierra la fase de robustez y reproducibilidad posterior a v0.2.0. Mantiene los presets, seeds y output determinista, e incorpora las decisiones de producto aprobadas para dual-stage 10K+, trills, pausas y presentación BPM.
+
+## Randomizador e interfaz
+
+- Añade `PreserveDualStages` para mapas 10K–18K. En keymodes impares, la columna central se comparte entre ambos stages y permanece neutral para Hand Balance.
+- Unifica scoring y estadísticas con la regla de acorde compatible para trills.
+- Corta trills sólo sobre `4 × MaxThresholdMs` y reinicia Dynamic Threshold sólo sobre `8 × MaxThresholdMs`.
+- Conserva los doce snaps y los presenta en una cuadrícula compacta; múltiples BPM se resumen como un rango.
+- Valida `MaxCandidateSets` entre 1 y 8.192, con 4.096 como valor predeterminado.
 
 ## Corregido
 
@@ -27,8 +35,13 @@ Esta es una actualización enfocada en corrección, robustez y reproducibilidad 
 - Conserva `config.json` ante fallos transitorios de lectura y respalda JSON malformado antes de restaurar defaults.
 - Maneja usos duplicados de archivos Realm y nombres temporales específicos del filesystem con diagnósticos controlados.
 - Añade extracción de `.osz` por streaming y acotada, además de manejo consistente de rutas/mayúsculas según el SO en extracción, hashing y validación.
+- Hace best-effort la limpieza temporal de `.osz`, sin ocultar éxitos ni errores principales.
+- Aplica la misma validación estructural previa a entradas `.osu` directas y a dificultades dentro de `.osz`.
+- Evita nombres reservados de Windows al sugerir archivos exportados de perfil, sin cambiar su nombre visible.
+- Redacta todas las apariciones válidas del directorio personal en diagnósticos compartibles.
+- Selecciona múltiples procesos stable de forma determinista y se abstiene ante candidatos indistinguibles.
 
-La suite automatizada completa contiene ahora 188 pruebas aprobadas. El pequeño conjunto de confirmaciones de plataforma en Linux real queda a cargo del propietario y está documentado por separado.
+La suite automatizada completa contiene ahora 343 pruebas aprobadas. Las confirmaciones manuales de plataforma permanecen documentadas por separado.
 
 El `storage.ini` personalizado ya fue verificado en Windows y Linux reales. Las comprobaciones manuales de regresión en Linux para las rutas modificadas de Wine/importación siguen siendo un paso del candidato a cargo del propietario.
 

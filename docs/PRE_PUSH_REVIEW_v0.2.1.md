@@ -1,13 +1,13 @@
 # Pre-push review
 
-Commit base: `e9c3c61` (`Polish documentation and CLI help`)
+Commit base: `5a47076` (`Harden final v0.2.1 integration and consistency`)
 Fecha: 2026-09-01
 Sistema: Windows x64, .NET SDK 8.0.419
 
 ## Baseline
 
-Build: correcta, 0 errores; sólo advertencias conocidas del feed de vulnerabilidades sin red en sandbox y de los analizadores Avalonia 12.1.1 con Roslyn 4.11 del SDK 8.
-Tests: 260 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del proyecto.
+Build: correcta, 0 errores; 4 advertencias conocidas `CS9057` de analizadores Avalonia 12.1.1 con Roslyn 4.11 del SDK 8.
+Tests: 316 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del proyecto.
 
 ## Correcciones
 
@@ -17,6 +17,10 @@ Tests: 260 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del p
 - README y hardening describen con precisión el centro compartido impar y la identidad multi-stable.
 - La cobertura dual-stage explicita 9K como control negativo y toda la matriz 10K–18K, activada y desactivada.
 - Se cubrieron acordes compatibles/incompatibles, cabezas de LN y límites estrictos 4×/8× en −1, exacto y +1 con varios thresholds.
+- El cleanup temporal de `.osz` es best-effort, inyectable para pruebas y no enmascara el resultado principal.
+- `.osu` directo y `.osz` aplican la misma validación estructural antes del randomizado.
+- Los nombres sugeridos para exportar perfiles evitan dispositivos reservados de Windows sin cambiar el nombre visible.
+- La redacción diagnóstica procesa todas las apariciones válidas del home y tolera puntuación adyacente sin aceptar prefijos falsos.
 
 ## Consistencia verificada
 
@@ -29,6 +33,7 @@ Tests: 260 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del p
 - Winello: cleanup best-effort confinado al root temporal y sin ocultar el error principal.
 - Diagnostics: home redactado en salida compartible; logs internos locales sin telemetría.
 - BPM: doce divisores sin cambios, formato compacto y resumen de rango.
+- Multi-stable: la política externa es determinista; la limitación residual del reader por nombre, sin binding por PID en esta integración, está documentada.
 - Docs: enlaces locales, versión, artefactos, .NET 8 y distinción histórica/vigente revisados.
 - CI: restore locked, pruebas Windows/Ubuntu, acciones fijadas por SHA y cuatro fuentes/binarios esperados más checksums.
 
@@ -40,7 +45,7 @@ Tests: 260 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del p
 ## Validación final
 
 Build: correcta, 0 errores.
-Tests: 316 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable; `dotnet test -c Release --no-build` finalizó correctamente.
+Tests: 343 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable; `dotnet test -c Release --no-build` finalizó correctamente.
 git diff --check: correcto, sin errores de whitespace.
 
 ## Estado

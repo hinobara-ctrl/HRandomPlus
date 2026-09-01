@@ -142,6 +142,7 @@ public static class ProfileTransfer
     {
         string sanitized = ProfileNames.SanitizeFileStem(profile.Name.Trim());
         if (string.IsNullOrWhiteSpace(sanitized)) sanitized = "profile";
+        if (ProfileNames.IsWindowsReservedFileStem(sanitized)) sanitized = "_" + sanitized;
         return sanitized + ".hrp-profile.json";
     }
 

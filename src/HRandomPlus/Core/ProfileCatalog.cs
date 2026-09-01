@@ -201,6 +201,22 @@ public static class ProfileNames
     public static string SanitizeFileStem(string value)
         => string.Concat(value.Select(character => char.IsControl(character) || PortableInvalidCharacters.Contains(character) ? '_' : character));
 
+    public static bool IsWindowsReservedFileStem(string value)
+    {
+        string deviceName = value.Split('.', 2)[0].TrimEnd(' ', '.');
+        if (deviceName.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            deviceName.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            deviceName.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            deviceName.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (deviceName.Length == 4 &&
+            (deviceName.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+             deviceName.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)))
+            return deviceName[3] is >= '1' and <= '9' or '¹' or '²' or '³';
+        return false;
+    }
+
     public static string MakeUnique(string requested, IEnumerable<string> existingNames)
     {
         var existing = existingNames.ToHashSet(StringComparer.OrdinalIgnoreCase);

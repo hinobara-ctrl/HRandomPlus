@@ -14,6 +14,15 @@ public sealed class OsuArchive
     private const long MaximumExpandedBytes = 8L * 1024 * 1024 * 1024;
     private const long MaximumEntryBytes = 2L * 1024 * 1024 * 1024;
     private const long MaximumBeatmapBytes = 64L * 1024 * 1024;
+    private readonly IArchiveTemporaryDirectoryCleaner temporaryDirectoryCleaner;
+    private readonly Action<string>? cleanupWarning;
+
+    public OsuArchive(IArchiveTemporaryDirectoryCleaner? temporaryDirectoryCleaner = null,
+                      Action<string>? cleanupWarning = null)
+    {
+        this.temporaryDirectoryCleaner = temporaryDirectoryCleaner ?? new ArchiveTemporaryDirectoryCleaner();
+        this.cleanupWarning = cleanupWarning;
+    }
 
     public ArchiveReport Process(string inputPath, string outputPath, HRandomConfig config,
                                  IReadOnlyCollection<string> difficultyFilters, bool overwrite)
@@ -30,7 +39,8 @@ public sealed class OsuArchive
             throw new IOException($"El archivo de salida ya existe: {outputPath}. Usa --overwrite para reemplazarlo.");
 
         long seed = config.Seed ?? SeededRandom.CreateSeed();
-        string tempRoot = Path.Combine(Path.GetTempPath(), "HRandomPlus", Guid.NewGuid().ToString("N"));
+        string temporaryParent = Path.Combine(Path.GetTempPath(), "HRandomPlus");
+        string tempRoot = Path.Combine(temporaryParent, Guid.NewGuid().ToString("N"));
         string extractRoot = Path.Combine(tempRoot, "extracted");
         string pendingOutput = Path.Combine(tempRoot, "result.osz");
         Directory.CreateDirectory(extractRoot);
@@ -106,8 +116,7 @@ public sealed class OsuArchive
         }
         finally
         {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, recursive: true);
+            TryCleanupTemporaryDirectory(tempRoot, temporaryParent);
         }
     }
 
@@ -270,4 +279,39 @@ public sealed class OsuArchive
     private static StringComparison FileSystemPathComparison => OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase
         : StringComparison.Ordinal;
+
+    private void TryCleanupTemporaryDirectory(string temporaryPath, string expectedParent)
+    {
+        try
+        {
+            temporaryDirectoryCleaner.Delete(temporaryPath, expectedParent);
+        }
+        catch (Exception ex)
+        {
+            try { cleanupWarning?.Invoke($"No se pudo limpiar el directorio temporal '{temporaryPath}': {ex.Message}"); }
+            catch { }
+        }
+    }
+}
+
+public interface IArchiveTemporaryDirectoryCleaner
+{
+    void Delete(string temporaryPath, string expectedParent);
+}
+
+public sealed class ArchiveTemporaryDirectoryCleaner : IArchiveTemporaryDirectoryCleaner
+{
+    public void Delete(string temporaryPath, string expectedParent)
+    {
+        string fullParent = Path.GetFullPath(expectedParent).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                            + Path.DirectorySeparatorChar;
+        string fullTemporaryPath = Path.GetFullPath(temporaryPath);
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!fullTemporaryPath.StartsWith(fullParent, comparison))
+            throw new InvalidDataException($"La ruta temporal está fuera del directorio esperado: {temporaryPath}");
+        if (Directory.Exists(fullTemporaryPath))
+            Directory.Delete(fullTemporaryPath, recursive: true);
+    }
 }

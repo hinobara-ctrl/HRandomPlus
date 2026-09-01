@@ -471,6 +471,27 @@ public class ApplicationTests
         Assert.True(serialized.Length < 3 || serialized[0] != 0xEF || serialized[1] != 0xBB || serialized[2] != 0xBF);
     }
 
+    [Theory]
+    [InlineData("Perfil 日本語", "Perfil 日本語.hrp-profile.json")]
+    [InlineData("CON", "_CON.hrp-profile.json")]
+    [InlineData("con.txt", "_con.txt.hrp-profile.json")]
+    [InlineData("PRN.backup", "_PRN.backup.hrp-profile.json")]
+    [InlineData("AUX", "_AUX.hrp-profile.json")]
+    [InlineData("NUL", "_NUL.hrp-profile.json")]
+    [InlineData("COM1", "_COM1.hrp-profile.json")]
+    [InlineData("com9.json", "_com9.json.hrp-profile.json")]
+    [InlineData("LPT1", "_LPT1.hrp-profile.json")]
+    [InlineData("lpt9.data", "_lpt9.data.hrp-profile.json")]
+    [InlineData("COM²", "_COM².hrp-profile.json")]
+    [InlineData("COM10", "COM10.hrp-profile.json")]
+    [InlineData("CONSOLE", "CONSOLE.hrp-profile.json")]
+    public void SuggestedProfileFilenameIsPortableWithoutChangingTheVisibleName(string name, string expected)
+    {
+        var profile = new RandomProfile { Id = Guid.NewGuid(), Name = name, Config = new HRandomConfig() };
+        Assert.Equal(expected, ProfileTransfer.SuggestedFileName(profile));
+        Assert.Equal(name, profile.Name);
+    }
+
     [Fact]
     public void ExportContainsOnlyProfileDataAndNoGlobalSettings()
     {

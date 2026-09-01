@@ -229,6 +229,7 @@ public sealed class HardeningTests
     {
         Assert.True(DiagnosticPathRedactor.Redact(null, "/home/user") is null);
         Assert.Equal(string.Empty, DiagnosticPathRedactor.Redact(string.Empty, "/home/user"));
+        Assert.Equal("plain text", DiagnosticPathRedactor.Redact("plain text", "/home/user"));
     }
 
     [Theory]
@@ -237,6 +238,15 @@ public sealed class HardeningTests
     [InlineData("Prefix/home/benja/.local", "/home/benja", "Prefix/home/benja/.local")]
     [InlineData("C:\\Users\\Benjamín\\data", "C:\\Users\\Benja", "C:\\Users\\Benjamín\\data")]
     public void DiagnosticPathsRedactEmbeddedHomeOnlyAtAPathBoundary(string value, string home, string expected)
+        => Assert.Equal(expected, DiagnosticPathRedactor.Redact(value, home));
+
+    [Theory]
+    [InlineData("C:\\Users\\Benja, C:\\Users\\Benja\\Songs)", "C:\\Users\\Benja", "%USERPROFILE%, %USERPROFILE%\\Songs)")]
+    [InlineData("/home/benja, then /home/benja/Songs)", "/home/benja", "$HOME, then $HOME/Songs)")]
+    [InlineData("C:\\Users\\Benjamín and C:\\Users\\Benja_extra", "C:\\Users\\Benja", "C:\\Users\\Benjamín and C:\\Users\\Benja_extra")]
+    [InlineData("/home/benjamin and /home/benja-extra", "/home/benja", "/home/benjamin and /home/benja-extra")]
+    public void DiagnosticPathsRedactEveryOccurrenceWithPunctuationAndRejectFalsePrefixes(
+        string value, string home, string expected)
         => Assert.Equal(expected, DiagnosticPathRedactor.Redact(value, home));
 
     [Fact]
