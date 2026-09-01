@@ -1,6 +1,9 @@
 namespace HRandomPlus.Integration.Beatmaps;
 
-public sealed record StableProcessCandidate(int ProcessId, string ExecutableDirectory, DateTimeOffset StartTime);
+public sealed record StableProcessIdentity(int ProcessId, string ExecutableDirectory, DateTimeOffset StartTime)
+{
+    public string SongsRoot => Path.Combine(ExecutableDirectory, "Songs");
+}
 
 public enum StableProcessSelectionStatus
 {
@@ -10,15 +13,16 @@ public enum StableProcessSelectionStatus
 }
 
 public sealed record StableProcessSelection(StableProcessSelectionStatus Status,
-    StableProcessCandidate? Candidate, string Message);
+    StableProcessIdentity? Identity, string Message);
 
 public static class StableProcessSelector
 {
-    public static StableProcessSelection Select(IEnumerable<StableProcessCandidate> source,
-        string? configuredPath, int? currentProcessId, DateTimeOffset? currentProcessStartTime = null)
+    public static StableProcessSelection Select(IEnumerable<StableProcessIdentity> source,
+        string? configuredPath, int? currentProcessId, DateTimeOffset? currentProcessStartTime = null,
+        bool readerCanBindToIdentity = false, int? readerTargetProcessCount = null)
     {
-        StableProcessCandidate[] candidates = source
-            .GroupBy(candidate => candidate.ProcessId)
+        StableProcessIdentity[] candidates = source
+            .GroupBy(candidate => (candidate.ProcessId, candidate.StartTime))
             .Select(group => group.First())
             .OrderBy(candidate => candidate.ExecutableDirectory, PathComparer)
             .ThenBy(candidate => candidate.ProcessId)
@@ -26,12 +30,17 @@ public static class StableProcessSelector
         if (candidates.Length == 0)
             return new(StableProcessSelectionStatus.None, null, "osu!stable not detected");
 
+        int matchingProcesses = readerTargetProcessCount ?? candidates.Length;
+        if (!readerCanBindToIdentity && matchingProcesses != 1)
+            return new(StableProcessSelectionStatus.Ambiguous, null,
+                "Multiple processes named osu! are running; close the other instances or select a .osu file manually");
+
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
             string? configured = TryNormalize(configuredPath);
             if (configured is not null)
             {
-                StableProcessCandidate[] matches = candidates
+                StableProcessIdentity[] matches = candidates
                     .Where(candidate => PathComparer.Equals(TryNormalize(candidate.ExecutableDirectory), configured))
                     .ToArray();
                 StableProcessSelection configuredSelection = Resolve(matches, currentProcessId, currentProcessStartTime,
@@ -41,7 +50,7 @@ public static class StableProcessSelector
             }
         }
 
-        StableProcessCandidate? current = candidates.FirstOrDefault(candidate =>
+        StableProcessIdentity? current = candidates.FirstOrDefault(candidate =>
             candidate.ProcessId == currentProcessId &&
             (currentProcessStartTime is null || candidate.StartTime == currentProcessStartTime));
         if (current is not null)
@@ -50,13 +59,13 @@ public static class StableProcessSelector
             "Multiple osu!stable installations are available; configure the intended osu!stable folder");
     }
 
-    private static StableProcessSelection Resolve(StableProcessCandidate[] candidates, int? currentProcessId,
+    private static StableProcessSelection Resolve(StableProcessIdentity[] candidates, int? currentProcessId,
         DateTimeOffset? currentProcessStartTime, string ambiguousMessage)
     {
         if (candidates.Length == 0) return new(StableProcessSelectionStatus.None, null, string.Empty);
         if (currentProcessId is int current)
         {
-            StableProcessCandidate? retained = candidates.FirstOrDefault(candidate => candidate.ProcessId == current &&
+            StableProcessIdentity? retained = candidates.FirstOrDefault(candidate => candidate.ProcessId == current &&
                 (currentProcessStartTime is null || candidate.StartTime == currentProcessStartTime));
             if (retained is not null)
                 return new(StableProcessSelectionStatus.Selected, retained, string.Empty);
@@ -78,4 +87,29 @@ public static class StableProcessSelector
     private static StringComparer PathComparer => OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
+}
+
+public sealed class StableReaderSession<TReader> : IDisposable where TReader : class, IDisposable
+{
+    public StableProcessIdentity? Identity { get; private set; }
+    public TReader? Reader { get; private set; }
+
+    public TReader GetOrCreate(StableProcessIdentity identity, Func<TReader> factory)
+    {
+        if (Reader is not null && Identity == identity) return Reader;
+        Invalidate();
+        TReader created = factory();
+        Reader = created;
+        Identity = identity;
+        return created;
+    }
+
+    public void Invalidate()
+    {
+        Reader?.Dispose();
+        Reader = null;
+        Identity = null;
+    }
+
+    public void Dispose() => Invalidate();
 }

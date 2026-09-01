@@ -1,53 +1,66 @@
-# Pre-push review
+# Revisión pre-push de v0.2.1-playtest
 
-Commit base: `5a47076` (`Harden final v0.2.1 integration and consistency`)
 Fecha: 2026-09-01
-Sistema: Windows x64, .NET SDK 8.0.419
 
-## Baseline
+HEAD base: `169789992ca43a246904f9c3d990b48dfaf7f8ce` (`Fix final v0.2.1 edge cases and release consistency`)
 
-Build: correcta, 0 errores; 4 advertencias conocidas `CS9057` de analizadores Avalonia 12.1.1 con Roslyn 4.11 del SDK 8.
-Tests: 316 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable del proyecto.
+Estado revisado: working tree posterior a ese commit, todavía sin commit
 
-## Correcciones
+SDK local: .NET SDK 8.0.419
 
-- La identidad retenida de osu!stable ahora usa PID y hora de inicio, evitando confundir un PID reutilizado con el proceso anterior.
-- Una ruta configurada de stable inválida se ignora de forma segura y no interrumpe la selección de procesos.
-- El diagnóstico compartible redacta también rutas personales embebidas en mensajes de estado de Winello.
-- README y hardening describen con precisión el centro compartido impar y la identidad multi-stable.
-- La cobertura dual-stage explicita 9K como control negativo y toda la matriz 10K–18K, activada y desactivada.
-- Se cubrieron acordes compatibles/incompatibles, cabezas de LN y límites estrictos 4×/8× en −1, exacto y +1 con varios thresholds.
-- El cleanup temporal de `.osz` es best-effort, inyectable para pruebas y no enmascara el resultado principal.
-- `.osu` directo y `.osz` aplican la misma validación estructural antes del randomizado.
-- Los nombres sugeridos para exportar perfiles evitan dispositivos reservados de Windows sin cambiar el nombre visible.
-- La redacción diagnóstica procesa todas las apariciones válidas del home y tolera puntuación adyacente sin aceptar prefijos falsos.
+Targets: `net8.0` y `net8.0-windows`
 
-## Consistencia verificada
+## Validación automatizada local
 
-- Config: defaults 4096, máximo 8192, migración conservadora y validación estricta de input nuevo.
-- Stages: 9K no aplica; 10K–18K conserva la semántica lateral y el centro compartido aprobados.
-- Trills: scoring y estadísticas usan el mismo helper y la regla de acorde compatible.
-- Pausas: sólo un delta superior a 4× corta el trill y sólo uno superior a 8× reinicia Dynamic Threshold.
-- Suffix: una política portable común cubre config, UI, perfiles y generación.
-- Stable: prioridad configurada, instancia vigente, candidata única y ambigüedad segura; PID reutilizado cubierto.
-- Winello: cleanup best-effort confinado al root temporal y sin ocultar el error principal.
-- Diagnostics: home redactado en salida compartible; logs internos locales sin telemetría.
-- BPM: doce divisores sin cambios, formato compacto y resumen de rango.
-- Multi-stable: la política externa es determinista; la limitación residual del reader por nombre, sin binding por PID en esta integración, está documentada.
-- Docs: enlaces locales, versión, artefactos, .NET 8 y distinción histórica/vigente revisados.
-- CI: restore locked, pruebas Windows/Ubuntu, acciones fijadas por SHA y cuatro fuentes/binarios esperados más checksums.
+- `dotnet restore --locked-mode`: correcto; lockfiles sin cambios. El sandbox sin red emitió únicamente `NU1900` al consultar el feed de vulnerabilidades.
+- `dotnet build -c Release --no-restore`: correcto, 0 errores. Advertencias conocidas: `NU1900` por red restringida y `CS9057` porque Avalonia 12.1.1 usa analizadores Roslyn 4.14 con el compilador 4.11 del SDK 8 local.
+- `dotnet test -c Release --no-build`: correcto.
+- Runner ejecutable: 351 aprobados, 0 fallidos, 0 omitidos.
+- `git diff --check`: correcto.
+- Sistema ejecutor: Windows x64.
 
-## Problemas encontrados pero no modificados
+El commit base ya había pasado CI en Windows y Ubuntu. El working tree actual incluye cambios posteriores; su ejecución en Ubuntu queda pendiente del pipeline que se iniciará después del push. No se presenta como ya ejecutada.
 
-- El SDK 8 local usa Roslyn 4.11 y puede emitir `CS9057` con analizadores Avalonia que esperan 4.14. CI usa SDK 10 para compilar los mismos targets net8.0; no es una regresión del código.
-- El sandbox sin salida de red puede emitir `NU1900` al consultar vulnerabilidades. Un restore locked con red habilitada fue correcto y no cambió lockfiles.
+## Identidad de osu!stable en Windows
 
-## Validación final
+`OsuMemoryDataProvider 0.12.2` no ofrece binding por PID: sus constructores reciben `ProcessTargetOptions`, que sólo expone nombre, título de ventana y arquitectura. La integración adopta por ello una política fail-closed:
 
-Build: correcta, 0 errores.
-Tests: 343 aprobados, 0 fallidos, 0 omitidos mediante el runner ejecutable; `dotnet test -c Release --no-build` finalizó correctamente.
-git diff --check: correcto, sin errores de whitespace.
+- sólo crea/usa el reader cuando existe un único proceso objetivo llamado `osu!`;
+- conserva una identidad formada por PID, hora de inicio y directorio ejecutable;
+- valida esa identidad antes y después de leer memoria;
+- invalida y dispone el reader al terminar, reutilizar PID o cambiar de instancia;
+- deriva `Songs` de la misma identidad, nunca de una segunda consulta a `settings.OsuPath`;
+- ante ambigüedad no lee memoria y solicita cerrar instancias o seleccionar un `.osu` manualmente.
+
+## Generación stable preservada
+
+Las regresiones confirman que el original permanece intacto, el output usa otra ruta y un nombre único, `BeatmapID` se establece en `0`, una colisión no se sobrescribe y un cambio concurrente del original aborta antes de escribir salida.
+
+## Timeout de procesos
+
+Después de timeout o cancelación, `SystemProcessRunner` intenta terminar el árbol y espera como máximo dos segundos adicionales. Si la terminación falla, devuelve timeout o propaga la cancelación sin espera indefinida. stdout/stderr completos se conservan cuando el proceso alcanza a salir; si permanece vivo, sólo se devuelve contenido ya completado.
+
+## Workflow y empaquetado
+
+- `.github/workflows/build.yml` conserva restore locked, pruebas Windows/Ubuntu y publicaciones framework-dependent para `win-x64`/`linux-x64`.
+- La versión de nombres de ZIP, source, GPL source y release candidate se lee de `Directory.Build.props`; no quedan nombres `v0.2.1-playtest` hardcodeados en el workflow.
+- El YAML fue parseado correctamente y contiene los cinco jobs esperados.
+- Política vigente: dos ZIP binarios framework-dependent, source ZIP, GPL source ZIP y `SHA256SUMS.txt`.
+- Se generaron candidatos locales framework-dependent para pruebas: Windows x64 (13.708.840 bytes, SHA-256 `27b743f490f3a6c8ca4144c1e111cbcc2a47d223ee786f493fe6e4fee622abff`) y Linux x64 (38.380.993 bytes, SHA-256 `68ec06b06a9b90fffdce2085b19035f47f66ee54f01e501ee864215f2ab1425f`). Ambos ZIP pasaron verificación CRC/contenido y Linux conserva modo ejecutable `0755`.
+- Estos ZIP locales sirven para smoke tests, pero no sustituyen los assets definitivos del pipeline. Los source ZIP, GPL source ZIP y checksums del conjunto completo permanecen pendientes de CI.
+- No cambiaron dependencias, licencias, lockfiles ni configuración de packaging.
+
+## Verificaciones manuales
+
+Las pruebas manuales históricas documentadas de Windows y Linux/VM permanecen válidas como línea base. Esta pasada no repitió un smoke test con un proceso osu!stable real ni ejecutó Linux; no se inventa ese resultado. Antes de publicar la release conviene confirmar en Windows: una sola instancia stable detecta el mapa, dos procesos `osu!` producen ambigüedad y el fallback manual sigue operativo.
+
+## Limitaciones conocidas
+
+- No existe binding real por PID en la dependencia de memoria actual; la garantía se obtiene absteniéndose cuando el nombre de proceso no identifica un objetivo único.
+- Las advertencias `CS9057` dependen del SDK 8 local; CI usa SDK 10 para compilar los mismos targets .NET 8.
+- La validación Ubuntu del working tree y los hashes finales sólo existirán después del push/pipeline.
+- Pesos de scoring finitos extremadamente grandes continúan registrados como mejora futura no bloqueante.
 
 ## Estado
 
-READY TO PUSH
+READY FOR PUSH. La publicación de la release debe esperar el pipeline Windows/Ubuntu y la generación de los artefactos/checksums de esa revisión.

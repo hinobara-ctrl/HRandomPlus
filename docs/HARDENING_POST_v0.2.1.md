@@ -8,7 +8,7 @@ La primera pasada no cambió scoring ni jugabilidad. Una decisión de producto p
 - Combinatoria: el conteo es exacto para 1K–18K, usa aritmética acotada y el límite de intentos se calcula en `long`, sin overflow silencioso.
 - Winello: el cleanup temporal es best-effort, comprueba que la ruta sea hija del root creado por HRandomPlus y nunca enmascara el resultado principal. Un warning puede registrarse mediante el sink local.
 - OSZ: su cleanup temporal aplica la misma política best-effort y confinada. La validación estructural previa al randomizado ahora es la misma para entradas `.osu` directas y dificultades contenidas en `.osz`.
-- Múltiples stable: una ruta configurada tiene prioridad; una instancia actual válida se conserva; una única candidata se acepta; candidatas indistinguibles se reportan como ambiguas en vez de depender del orden de `Process.GetProcessesByName`.
+- Múltiples procesos `osu!`: la dependencia actual no permite binding por PID. Windows sólo activa memoria cuando existe un único proceso objetivo; con más de uno falla de forma cerrada y solicita cerrar instancias o seleccionar un `.osu` manualmente. La ruta configurada nunca reemplaza el root de la identidad en ejecución.
 - `DifficultySuffix`: una única política portable rechaza controles, `<>:"/\\|?*` y punto/espacio final, manteniendo Unicode normal. Los nombres reservados de dispositivo no se rechazan porque el sufijo se añade al nombre original y no constituye por sí solo el stem completo.
 - Perfiles: el nombre sugerido de exportación evita stems reservados de Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` y variantes aplicables) sin cambiar el nombre visible del perfil ni depender del sistema operativo anfitrión.
 - Diagnóstico: la salida compartible de `--diagnose` sustituye todas las apariciones válidas del home por `%USERPROFILE%` o `$HOME`, incluso junto a puntuación; rechaza prefijos parecidos. Los logs locales internos conservan detalle para depuración.
@@ -31,7 +31,7 @@ La tabla se volvió a medir después de unificar la detección de trills. El cos
 | Operación | Intervalo/frecuencia | Cache existente | Decisión |
 |---|---:|---|---|
 | Coordinación de fuentes | 200 ms | estado y selección anterior | Sin cambio para no alterar latencia visible. |
-| stable Windows | una enumeración `osu!` por tick activo | reader retenido por PID + hora de inicio | Política determinista añadida; no se comparte `Process` con lazer por ownership/disposal. |
+| stable Windows | enumeración `osu!` antes y después de leer | sesión invalidada por PID + inicio + directorio; reader interno vinculado por nombre | Sólo continúa con un proceso objetivo y usa el `Songs` de esa misma identidad. |
 | proceso lazer | nombres `osu!`/`osu` por tick | sesión y resultado resuelto | Sin cache temporal nueva: una demora artificial podría ocultar cierre/reapertura. |
 | discovery de storage lazer | cada 5 s | storage actual | Ya acotado. |
 | runtime log | cada tick | posición, decoder y selección | Sólo se leen bytes añadidos; el scan inicial está limitado y busca hacia atrás por bloques. |
@@ -39,7 +39,7 @@ La tabla se volvió a medir después de unificar la detección de trills. El cos
 
 No se encontró una optimización adicional inequívoca que justificara cambiar la semántica temporal. El polling se cancela al cerrar y las fuentes se disponen.
 
-**Limitación residual multi-stable:** la selección externa ya no depende del orden de enumeración, pero `OsuMemoryDataProvider 0.12.2` se instancia mediante `StructuredOsuMemoryReader(new ProcessTargetOptions("osu!", null!, false))`. Esa API de la integración apunta por nombre y no ofrece aquí un constructor/binding por PID. Por eso HRandomPlus se abstiene cuando existen dos procesos stable indistinguibles en vez de afirmar que lee el PID elegido.
+**Garantía multi-stable:** `OsuMemoryDataProvider 0.12.2` sólo ofrece `StructuredOsuMemoryReader(ProcessTargetOptions)` y `ProcessTargetOptions` contiene nombre, título y arquitectura, no PID. HRandomPlus no afirma binding por PID: se abstiene si el reader podría ver más de un proceso `osu!`, valida PID + inicio + directorio antes y después de la lectura, invalida el reader al cambiar la identidad y resuelve `Songs` exclusivamente desde ese directorio. No combina memoria y root de instalaciones distintas.
 
 ## Cobertura añadida
 
@@ -53,7 +53,7 @@ Existen regresiones para límites/migración/overflow, combinaciones 1K–18K, s
 - **BPM/snaps:** se conservan exactamente los divisores existentes. La UI muestra los doce valores en una cuadrícula compacta y resume múltiples BPM como un rango.
 - **Centro impar, Extreme Jump y Hand Balance:** comportamiento actual conservado.
 - **Diagnóstico:** `--diagnose` sigue siendo una operación local opcional, sin telemetría ni networking adicional; la salida compartible redacta el home y los logs internos conservan detalle local.
-- **Múltiples stable:** se conserva la selección segura y determinista ya implementada.
+- **Múltiples stable:** fail-closed cuando el reader basado en nombre no puede asociarse inequívocamente a una única identidad.
 
 ## Pendiente futuro
 

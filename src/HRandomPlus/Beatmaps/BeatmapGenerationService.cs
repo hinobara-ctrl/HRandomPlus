@@ -49,13 +49,18 @@ public sealed class BeatmapGenerationService
         byte[] generated = output.ToBytes();
         OsuBeatmapDocument reparsed = OsuBeatmapDocument.Parse(inputPath, generated);
         BeatmapValidator.ValidateTransformation(original, reparsed);
-        if (!SHA256.HashData(File.ReadAllBytes(inputPath)).SequenceEqual(originalHash))
-            throw new IOException("El beatmap original cambió durante la operación; no se escribió ninguna salida.");
+        EnsureOriginalUnchanged(inputPath, originalHash);
 
         string outputPath = FindUniquePath(inputPath, suffix, outputDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllBytes(outputPath, generated);
         return new GenerationResult(outputPath, output.Version, seed, selected.Count);
+    }
+
+    internal static void EnsureOriginalUnchanged(string inputPath, byte[] expectedHash)
+    {
+        if (!SHA256.HashData(File.ReadAllBytes(inputPath)).SequenceEqual(expectedHash))
+            throw new IOException("El beatmap original cambió durante la operación; no se escribió ninguna salida.");
     }
 
     public static string FindUniquePath(string originalPath, string suffix, string? outputDirectory = null)

@@ -19,6 +19,8 @@ public interface IProcessRunner
 
 public sealed class SystemProcessRunner : IProcessRunner
 {
+    private static readonly TimeSpan TerminationGracePeriod = TimeSpan.FromSeconds(2);
+
     public async Task<ProcessRunResult> RunAsync(ProcessRunRequest request, CancellationToken cancellationToken = default)
     {
         var startInfo = new ProcessStartInfo
@@ -50,15 +52,25 @@ public sealed class SystemProcessRunner : IProcessRunner
             catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 try { process.Kill(entireProcessTree: true); } catch { }
-                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-                return new ProcessRunResult(true, true, null, await stdout.ConfigureAwait(false),
-                    await stderr.ConfigureAwait(false), "The process timed out.");
+                bool exited = await WaitForExitWithinAsync(process.WaitForExitAsync(CancellationToken.None),
+                    TerminationGracePeriod).ConfigureAwait(false);
+                string capturedOutput = await ReadCapturedOutputAsync(stdout, exited).ConfigureAwait(false);
+                string capturedError = await ReadCapturedOutputAsync(stderr, exited).ConfigureAwait(false);
+                return new ProcessRunResult(true, true, null, capturedOutput,
+                    capturedError, exited ? "The process timed out." : "The process timed out and could not be terminated promptly.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 try { process.Kill(entireProcessTree: true); } catch { }
-                try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
-                try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); } catch { }
+                bool exited = false;
+                try
+                {
+                    exited = await WaitForExitWithinAsync(process.WaitForExitAsync(CancellationToken.None),
+                        TerminationGracePeriod).ConfigureAwait(false);
+                }
+                catch { }
+                _ = await ReadCapturedOutputAsync(stdout, exited).ConfigureAwait(false);
+                _ = await ReadCapturedOutputAsync(stderr, exited).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
                 throw;
             }
@@ -70,5 +82,27 @@ public sealed class SystemProcessRunner : IProcessRunner
         {
             return new ProcessRunResult(false, false, null, "", "", ex.Message);
         }
+    }
+
+    internal static async Task<bool> WaitForExitWithinAsync(Task exitTask, TimeSpan maximumWait)
+    {
+        Task completed = await Task.WhenAny(exitTask, Task.Delay(maximumWait)).ConfigureAwait(false);
+        if (!ReferenceEquals(completed, exitTask)) return false;
+        await exitTask.ConfigureAwait(false);
+        return true;
+    }
+
+    private static async Task<string> ReadCapturedOutputAsync(Task<string> readTask, bool processExited)
+    {
+        if (processExited)
+        {
+            try { return await readTask.ConfigureAwait(false); }
+            catch { return string.Empty; }
+        }
+
+        _ = readTask.ContinueWith(task => _ = task.Exception,
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return readTask.IsCompletedSuccessfully ? readTask.Result : string.Empty;
     }
 }

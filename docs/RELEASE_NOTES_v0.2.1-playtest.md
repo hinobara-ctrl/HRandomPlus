@@ -39,9 +39,11 @@ Esta actualización cierra la fase de robustez y reproducibilidad posterior a v0
 - Aplica la misma validación estructural previa a entradas `.osu` directas y a dificultades dentro de `.osz`.
 - Evita nombres reservados de Windows al sugerir archivos exportados de perfil, sin cambiar su nombre visible.
 - Redacta todas las apariciones válidas del directorio personal en diagnósticos compartibles.
-- Selecciona múltiples procesos stable de forma determinista y se abstiene ante candidatos indistinguibles.
+- Evita mezclar memoria y `Songs` de instalaciones stable distintas: como el reader actual no admite binding por PID, Windows falla de forma cerrada cuando más de un proceso `osu!` podría ser objetivo y usa siempre el root de la identidad única validada.
+- Acota la espera posterior a timeout/cancelación de procesos auxiliares, incluso si el intento de terminación falla.
+- Obtiene los nombres de assets de CI desde la versión canónica de `Directory.Build.props`.
 
-La suite automatizada completa contiene ahora 343 pruebas aprobadas. Las confirmaciones manuales de plataforma permanecen documentadas por separado.
+La suite automatizada completa contiene ahora 351 pruebas aprobadas. Las confirmaciones manuales de plataforma permanecen documentadas por separado.
 
 El `storage.ini` personalizado ya fue verificado en Windows y Linux reales. Las comprobaciones manuales de regresión en Linux para las rutas modificadas de Wine/importación siguen siendo un paso del candidato a cargo del propietario.
 

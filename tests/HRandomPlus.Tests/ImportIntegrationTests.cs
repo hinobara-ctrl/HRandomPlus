@@ -7,6 +7,31 @@ namespace HRandomPlus.Tests;
 public class ImportIntegrationTests
 {
     [Fact]
+    public void SystemProcessRunnerReturnsPromptlyAfterTimeout()
+    {
+        ProcessRunRequest request = OperatingSystem.IsWindows()
+            ? new ProcessRunRequest("cmd", new[] { "/d", "/c", "ping 127.0.0.1 -n 30 > nul" }, TimeSpan.FromMilliseconds(200))
+            : new ProcessRunRequest("/bin/sh", new[] { "-c", "sleep 30" }, TimeSpan.FromMilliseconds(200));
+        var elapsed = Stopwatch.StartNew();
+        ProcessRunResult result = new SystemProcessRunner().RunAsync(request).GetAwaiter().GetResult();
+
+        Assert.True(result.Started);
+        Assert.True(result.TimedOut);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void ProcessTerminationWaitIsBoundedWhenExitNeverCompletes()
+    {
+        var neverExits = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var elapsed = Stopwatch.StartNew();
+        bool exited = SystemProcessRunner.WaitForExitWithinAsync(neverExits.Task, TimeSpan.FromMilliseconds(50))
+            .GetAwaiter().GetResult();
+        Assert.True(!exited);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
     public void SystemProcessRunnerCancelsLongRunningChildPromptly()
     {
         ProcessRunRequest request = OperatingSystem.IsWindows()

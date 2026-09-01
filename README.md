@@ -16,7 +16,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 - Detección read-only de osu!lazer mediante su log y catálogo Realm, sin tosu ni lectura de memoria.
 - Importación segura a lazer mediante una variante local `.osz`; no modifica `client.realm` ni los blobs originales.
 - Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
-- Estado de origen inequívoco: Windows indica osu!stable, Linux indica tosu y la selección manual permanece diferenciada.
+- Estado de origen inequívoco: osu!stable usa memoria en Windows y tosu en Linux; osu!lazer se detecta nativamente en ambos sistemas, y la selección manual permanece como fuente separada.
 - Selector manual `.osu` para osu!stable en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
 - Referencia compacta y editable de BPM a milisegundos para snaps de 1/1 a 1/64; los mapas con varios BPM muestran únicamente su rango.
@@ -24,7 +24,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 
 ## Windows
 
-La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. Si la detección falla, usa **Select .osu manually** o **Configure osu!stable** y selecciona la raíz que contiene `Songs`.
+La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. Como el reader disponible se vincula por nombre y no por PID, la detección automática de stable sólo continúa cuando existe un único proceso llamado `osu!`; ante ambigüedad, cierra las otras instancias o usa **Select .osu manually**. **Configure osu!stable** sólo ayuda a localizar una instalación y no reemplaza la identidad del proceso en ejecución.
 
 La salida predeterminada de Windows continúa creándose junto al beatmap original.
 

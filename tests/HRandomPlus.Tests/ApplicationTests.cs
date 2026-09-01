@@ -199,7 +199,9 @@ public class ApplicationTests
         try
         {
             string input = Path.Combine(root, "map.osu");
-            byte[] bytes = TestBeatmaps.Mania(4, Enumerable.Range(0, 20).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)));
+            byte[] template = TestBeatmaps.Mania(4, Enumerable.Range(0, 20).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)));
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(System.Text.Encoding.UTF8.GetString(template)
+                .Replace("Version:Test", "Version:Test\nBeatmapID:123", StringComparison.Ordinal));
             File.WriteAllBytes(input, bytes);
             var config = new HRandomConfig { Seed = 123, DifficultySuffix = " TEST" };
             var service = new BeatmapGenerationService();
@@ -208,8 +210,30 @@ public class ApplicationTests
             Assert.Equal(bytes, File.ReadAllBytes(input));
             OsuBeatmapDocument a = OsuBeatmapDocument.Parse(first.OutputPath, File.ReadAllBytes(first.OutputPath));
             OsuBeatmapDocument b = OsuBeatmapDocument.Parse(second.OutputPath, File.ReadAllBytes(second.OutputPath));
+            Assert.Equal(0, a.BeatmapId);
+            Assert.Equal(0, b.BeatmapId);
+            Assert.True(first.OutputPath != input && second.OutputPath != input);
             Assert.Equal(a.HitObjects.Select(x => x.OriginalColumn), b.HitObjects.Select(x => x.OriginalColumn));
             Assert.True(first.OutputPath != second.OutputPath);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void OriginalIntegrityGuardRejectsAChangedSourceBeforeOutputWrite()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusIntegrity", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string input = Path.Combine(root, "map.osu");
+            byte[] original = TestBeatmaps.Mania(4, new[] { TestBeatmaps.Note(4, 0, 1000) });
+            File.WriteAllBytes(input, original);
+            byte[] expectedHash = System.Security.Cryptography.SHA256.HashData(original);
+            File.AppendAllText(input, "// changed concurrently\n");
+
+            AssertFails<IOException>(() => BeatmapGenerationService.EnsureOriginalUnchanged(input, expectedHash));
+            Assert.Equal(1, Directory.GetFiles(root).Length);
         }
         finally { Directory.Delete(root, true); }
     }

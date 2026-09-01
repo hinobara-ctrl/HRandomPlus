@@ -129,28 +129,53 @@ public sealed class HardeningTests
     [Fact]
     public void StableSelectorUsesTheOnlyCandidate()
     {
-        StableProcessCandidate candidate = Candidate(10, "stable-a");
+        StableProcessIdentity candidate = Candidate(10, "stable-a");
         StableProcessSelection result = StableProcessSelector.Select(new[] { candidate }, null, null);
         Assert.Equal(StableProcessSelectionStatus.Selected, result.Status);
-        Assert.Equal(10, result.Candidate!.ProcessId);
+        Assert.Equal(candidate, result.Identity);
+        Assert.Equal(candidate.ExecutableDirectory, result.Identity!.ExecutableDirectory);
     }
 
     [Fact]
-    public void StableSelectorPrefersConfiguredInstallationIndependentlyOfOrder()
+    public void StableSelectorCanSelectAnExactIdentityOnlyWhenReaderBindingIsAvailable()
     {
-        StableProcessCandidate a = Candidate(10, "stable-a");
-        StableProcessCandidate b = Candidate(20, "stable-b");
-        foreach (StableProcessCandidate[] order in new[] { new[] { a, b }, new[] { b, a } })
+        StableProcessIdentity a = Candidate(10, "stable-a");
+        StableProcessIdentity b = Candidate(20, "stable-b");
+        foreach (StableProcessIdentity[] order in new[] { new[] { a, b }, new[] { b, a } })
         {
-            Assert.Equal(10, StableProcessSelector.Select(order, a.ExecutableDirectory, null).Candidate!.ProcessId);
-            Assert.Equal(20, StableProcessSelector.Select(order, b.ExecutableDirectory, null).Candidate!.ProcessId);
+            StableProcessSelection selected = StableProcessSelector.Select(order, b.ExecutableDirectory, null,
+                readerCanBindToIdentity: true, readerTargetProcessCount: 2);
+            Assert.Equal(StableProcessSelectionStatus.Selected, selected.Status);
+            Assert.Equal(b, selected.Identity);
+            Assert.Equal(b.ExecutableDirectory, selected.Identity!.ExecutableDirectory);
         }
+    }
+
+    [Fact]
+    public void StableSelectorFailsClosedWhenNameBasedReaderSeesMultipleProcesses()
+    {
+        StableProcessIdentity a = Candidate(10, "stable-a");
+        StableProcessIdentity b = Candidate(20, "stable-b");
+        StableProcessSelection result = StableProcessSelector.Select(new[] { a, b }, b.ExecutableDirectory, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 2);
+        Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
+        Assert.True(result.Identity is null);
+        Assert.Contains("select a .osu file manually", result.Message);
+    }
+
+    [Fact]
+    public void StableSelectorFailsClosedWhenOnlyOneStableCandidateButReaderSeesAnotherNamedProcess()
+    {
+        StableProcessSelection result = StableProcessSelector.Select(new[] { Candidate(10, "stable-a") }, null, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 2);
+        Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
+        Assert.True(result.Identity is null);
     }
 
     [Fact]
     public void StableSelectorReturnsNoneWithoutCandidates()
         => Assert.Equal(StableProcessSelectionStatus.None,
-            StableProcessSelector.Select(Array.Empty<StableProcessCandidate>(), null, null).Status);
+            StableProcessSelector.Select(Array.Empty<StableProcessIdentity>(), null, null).Status);
 
     [Fact]
     public void StableSelectorReportsAmbiguityWhenConfiguredPathMatchesNone()
@@ -165,52 +190,104 @@ public sealed class HardeningTests
     public void StableSelectorRetainsCurrentProcessWhileItRemainsValid()
     {
         StableProcessSelection result = StableProcessSelector.Select(
-            new[] { Candidate(10, "stable-a"), Candidate(20, "stable-b") }, null, 10);
-        Assert.Equal(10, result.Candidate!.ProcessId);
+            new[] { Candidate(10, "stable-a"), Candidate(20, "stable-b") }, null, 10,
+            readerCanBindToIdentity: true, readerTargetProcessCount: 2);
+        Assert.Equal(10, result.Identity!.ProcessId);
     }
 
     [Fact]
     public void StableSelectorReportsAmbiguityWhenCurrentProcessDisappears()
     {
         StableProcessSelection result = StableProcessSelector.Select(
-            new[] { Candidate(20, "stable-a"), Candidate(30, "stable-b") }, null, 10);
+            new[] { Candidate(20, "stable-a"), Candidate(30, "stable-b") }, null, 10,
+            readerCanBindToIdentity: true, readerTargetProcessCount: 2);
         Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
-        Assert.True(result.Candidate is null);
+        Assert.True(result.Identity is null);
     }
 
     [Fact]
     public void StableSelectorDoesNotRetainAReusedProcessId()
     {
-        StableProcessCandidate previous = Candidate(10, "stable-a");
-        StableProcessCandidate reused = previous with { StartTime = previous.StartTime.AddMinutes(1) };
+        StableProcessIdentity previous = Candidate(10, "stable-a");
+        StableProcessIdentity reused = previous with { StartTime = previous.StartTime.AddMinutes(1) };
         StableProcessSelection result = StableProcessSelector.Select(
-            new[] { reused, Candidate(20, "stable-b") }, null, previous.ProcessId, previous.StartTime);
+            new[] { reused }, null, previous.ProcessId, previous.StartTime,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 1);
 
-        Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
-        Assert.True(result.Candidate is null);
+        Assert.Equal(StableProcessSelectionStatus.Selected, result.Status);
+        Assert.Equal(reused, result.Identity);
     }
 
     [Fact]
     public void StableSelectorIgnoresAnInvalidConfiguredPath()
     {
-        StableProcessCandidate candidate = Candidate(10, "stable-a");
+        StableProcessIdentity candidate = Candidate(10, "stable-a");
         StableProcessSelection result = StableProcessSelector.Select(new[] { candidate }, "invalid\0path", null);
 
         Assert.Equal(StableProcessSelectionStatus.Selected, result.Status);
-        Assert.Equal(candidate, result.Candidate);
+        Assert.Equal(candidate, result.Identity);
     }
 
     [Fact]
     public void StableSelectorDoesNotInventPreferenceForMultipleProcessesInConfiguredFolder()
     {
-        StableProcessCandidate a = Candidate(10, "stable-a");
-        StableProcessCandidate b = Candidate(20, "stable-a");
-        StableProcessSelection result = StableProcessSelector.Select(new[] { a, b }, a.ExecutableDirectory, null);
+        StableProcessIdentity a = Candidate(10, "stable-a");
+        StableProcessIdentity b = Candidate(20, "stable-a");
+        StableProcessSelection result = StableProcessSelector.Select(new[] { a, b }, a.ExecutableDirectory, null,
+            readerCanBindToIdentity: true, readerTargetProcessCount: 2);
         Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
     }
 
-    private static StableProcessCandidate Candidate(int id, string directory)
+    [Fact]
+    public void ConfiguredOldInstallationCannotReplaceTheOnlyRunningIdentityRoot()
+    {
+        StableProcessIdentity running = Candidate(20, "stable-current");
+        StableProcessSelection result = StableProcessSelector.Select(new[] { running },
+            Candidate(10, "stable-old").ExecutableDirectory, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 1);
+        Assert.Equal(running, result.Identity);
+        Assert.Equal(running.ExecutableDirectory, result.Identity!.ExecutableDirectory);
+        Assert.Equal(Path.Combine(running.ExecutableDirectory, "Songs"), result.Identity.SongsRoot);
+    }
+
+    [Fact]
+    public void StableReaderSessionRecreatesOnPidReuseAndInstanceSwitch()
+    {
+        StableProcessIdentity a = Candidate(10, "stable-a");
+        StableProcessIdentity reused = a with { StartTime = a.StartTime.AddMinutes(1) };
+        StableProcessIdentity b = Candidate(20, "stable-b");
+        using var session = new StableReaderSession<FakeStableReader>();
+        FakeStableReader first = session.GetOrCreate(a, () => new FakeStableReader("A"));
+        Assert.Equal(first, session.GetOrCreate(a, () => new FakeStableReader("unexpected")));
+
+        FakeStableReader second = session.GetOrCreate(reused, () => new FakeStableReader("reused"));
+        Assert.True(first.Disposed);
+        Assert.Equal(reused, session.Identity);
+        FakeStableReader third = session.GetOrCreate(b, () => new FakeStableReader("B"));
+        Assert.True(second.Disposed);
+        Assert.Equal(b, session.Identity);
+        Assert.Equal("B", third.Name);
+    }
+
+    [Fact]
+    public void StableReaderSessionInvalidatesWhenSelectedProcessTerminates()
+    {
+        using var session = new StableReaderSession<FakeStableReader>();
+        FakeStableReader reader = session.GetOrCreate(Candidate(10, "stable-a"), () => new FakeStableReader("A"));
+        session.Invalidate();
+        Assert.True(reader.Disposed);
+        Assert.True(session.Reader is null && session.Identity is null);
+    }
+
+    private static StableProcessIdentity Candidate(int id, string directory)
         => new(id, Path.Combine(Path.GetTempPath(), directory), DateTimeOffset.UnixEpoch.AddSeconds(id));
+
+    private sealed class FakeStableReader(string name) : IDisposable
+    {
+        public string Name { get; } = name;
+        public bool Disposed { get; private set; }
+        public void Dispose() => Disposed = true;
+    }
 
     [Theory]
     [InlineData("C:\\Users\\Benja", "C:\\Users\\Benja", "%USERPROFILE%")]
