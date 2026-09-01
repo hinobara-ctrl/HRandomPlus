@@ -135,8 +135,30 @@ public static class Program
     private static void PrintHelp()
     {
         Console.WriteLine("HRandomPlus CLI");
-        Console.WriteLine("  HRandomPlus.Cli --diagnose [--host 127.0.0.1] [--port 24050] [--osu-path RUTA]");
-        Console.WriteLine("  HRandomPlus.Cli <beatmap.osz> [-o salida.osz] [--config config.json] [--seed N]");
+        Console.WriteLine("Uso:");
+        Console.WriteLine("  HRandomPlus.Cli <beatmap.osz|beatmap.zip> [opciones]");
+        Console.WriteLine("  HRandomPlus.Cli --diagnose [opciones]");
+        Console.WriteLine();
+        Console.WriteLine("Opciones de archivo:");
+        Console.WriteLine("  -o, --output <RUTA>       Ruta del archivo OSZ generado.");
+        Console.WriteLine("      --config <RUTA>       Configuración JSON que se aplicará.");
+        Console.WriteLine("      --report <RUTA>       Ruta del reporte JSON generado.");
+        Console.WriteLine("      --seed <N>            Seed reproducible.");
+        Console.WriteLine("  -d, --difficulty <FILTRO> Procesa sólo la versión, archivo o ruta indicada; puede repetirse.");
+        Console.WriteLine("      --overwrite           Permite reemplazar el archivo de salida existente.");
+        Console.WriteLine();
+        Console.WriteLine("Opciones de diagnóstico:");
+        Console.WriteLine("      --host <HOST>         Host de tosu.");
+        Console.WriteLine("      --port <PUERTO>       Puerto de tosu.");
+        Console.WriteLine("      --osu-path <RUTA>     Raíz nativa de osu!stable.");
+        Console.WriteLine();
+        Console.WriteLine("Opciones generales:");
+        Console.WriteLine("  -h, --help                Muestra esta ayuda.");
+        Console.WriteLine();
+        Console.WriteLine("Ejemplos:");
+        Console.WriteLine("  HRandomPlus.Cli mapa.osz -o mapa-random.osz --seed 12345");
+        Console.WriteLine("  HRandomPlus.Cli mapa.osz -d \"Insane\" --report resultado.json");
+        Console.WriteLine("  HRandomPlus.Cli --diagnose --host 127.0.0.1 --port 24050");
     }
 
     private static string PlatformName()

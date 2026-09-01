@@ -1,5 +1,7 @@
 # Estudio de optimización de HRandomPlus v0.1.1
 
+> Documento histórico de `v0.1.1`. Su recomendación de paquetes self-contained principales fue reemplazada en `v0.2.1-playtest` por dos paquetes binarios framework-dependent, uno para Windows x64 y otro para Linux x64.
+
 Fecha de inicio: 2026-08-30
 
 Revisión de referencia: `06d9bd5` (`Prepare GPL v0.1.0 playtest release`)

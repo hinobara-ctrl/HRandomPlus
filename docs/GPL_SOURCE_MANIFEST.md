@@ -31,4 +31,4 @@ Ambos tags anotados resuelven al mismo commit declarado en los dos manifiestos N
 
 ## Conjunto de distribución
 
-Las dos variantes binarias de Windows, las variantes binarias de Linux, el ZIP de fuentes de HRandomPlus, el ZIP de fuentes GPL upstream y `SHA256SUMS.txt` forman un único conjunto de release. No publiques ningún binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.
+`HRandomPlus-v0.2.1-playtest-windows-x64-framework-dependent.zip`, `HRandomPlus-v0.2.1-playtest-linux-x64-framework-dependent.zip`, `HRandomPlus-v0.2.1-playtest-source.zip`, `HRandomPlus-v0.2.1-playtest-gpl-source.zip` y `SHA256SUMS.txt` forman un único conjunto de release. No publiques el binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.

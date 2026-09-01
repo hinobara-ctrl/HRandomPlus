@@ -18,7 +18,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 - Selector manual `.osu` para osu!stable en ambas plataformas.
 - Salida con nombre único, `BeatmapID:0` y original intacto.
 - Referencia visual editable de BPM a milisegundos para snaps de 1/1 a 1/64.
-- Version y filename únicos incluso al repetir el mismo perfil antes de que osu! refresque.
+- Versión y nombre de archivo únicos incluso al repetir el mismo perfil antes de que osu! refresque.
 
 ## Windows
 

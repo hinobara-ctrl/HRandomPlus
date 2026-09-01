@@ -78,6 +78,6 @@ También puede evaluarse evitar una consulta HTTP a tosu cuando se sabe que la p
 
 ## Conclusión
 
-No hay archivos redundantes dentro de los cuatro paquetes finales. El aumento frente a v0.1.x corresponde principalmente al soporte lazer/Realm, no al código propio ni a residuos. El empaquetado actual ya recuperó alrededor de 7 % frente a v0.2.0 y los paquetes dependientes de .NET ofrecen la alternativa compacta.
+No se encontraron archivos redundantes dentro de los cuatro paquetes medidos en ese estudio. El aumento frente a v0.1.x correspondía principalmente al soporte lazer/Realm, no al código propio ni a residuos. Aquel empaquetado recuperó alrededor de 7 % frente a v0.2.0; la política vigente conserva únicamente los dos paquetes dependientes de .NET.
 
 La siguiente fase útil no es trimming ni una refactorización amplia: es perfilar y, si los datos lo confirman, reducir el sondeo de procesos cuando no hay ningún juego abierto. Después puede dividirse `MainWindow` por mantenibilidad, sin presentarlo como una optimización de tamaño o rendimiento.

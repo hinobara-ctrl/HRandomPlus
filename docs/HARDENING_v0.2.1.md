@@ -1,5 +1,7 @@
 # Endurecimiento dirigido de v0.2.1
 
+> **Estado histórico:** este documento registra la auditoría cerrada en el commit `ef9a30f`; las cifras de 146 pruebas y cuatro publicaciones del resumen corresponden a ese momento. El estado posterior de `v0.2.1-playtest` es 188 pruebas aprobadas y dos paquetes binarios principales framework-dependent. Consulta el [checklist funcional vigente](CHECKLIST_FUNCIONAL_FINAL_v0.2.1.md) y las [notas actuales de la release](RELEASE_NOTES_v0.2.1-playtest.md).
+
 ## Causa raíz
 
 `LazerCurrentBeatmapSource` identificaba su resolución Realm en caché únicamente mediante el GUID y el nombre visible del beatmap. Por ello, un evento nuevo de ejecución para un mapa reimportado podía conservar el hash/blob anterior de Realm. Además, una importación correcta no invalidaba explícitamente esa resolución cuando lazer no emitía un evento útil de selección.
