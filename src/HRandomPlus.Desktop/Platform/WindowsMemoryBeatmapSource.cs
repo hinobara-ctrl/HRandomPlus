@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using HRandomPlus.Core;
 using HRandomPlus.Integration.Beatmaps;
 using HRandomPlus.Integration.Lazer;
@@ -101,11 +102,16 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
     {
         Process[] readerTargets = Process.GetProcessesByName("osu!");
         var candidates = new List<(Process Process, StableProcessIdentity Identity)>();
+        int readerTargetProcessCount = 0;
         foreach (Process process in readerTargets)
         {
             bool retained = false;
             try
             {
+                // ProcessTargetOptions(..., Target64Bit: false) applies this same x86 filter.
+                // osu!lazer is x64, so it must not make the stable reader ambiguous.
+                if (!IsMemoryReaderTarget(process)) continue;
+                readerTargetProcessCount++;
                 string? directory = Path.GetDirectoryName(process.MainModule?.FileName);
                 if (directory is not null && Directory.Exists(Path.Combine(directory, "Songs")))
                 {
@@ -126,7 +132,7 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
             StableProcessSelection choice = StableProcessSelector.Select(
                 candidates.Select(candidate => candidate.Identity), settings.OsuPath,
                 readerSession.Identity?.ProcessId, readerSession.Identity?.StartTime,
-                readerCanBindToIdentity: false, readerTargetProcessCount: readerTargets.Length);
+                readerCanBindToIdentity: false, readerTargetProcessCount: readerTargetProcessCount);
             processSelectionMessage = choice.Status == StableProcessSelectionStatus.Ambiguous ? choice.Message : null;
             if (choice.Identity is not null)
             {
@@ -148,8 +154,9 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
         Process[] processes = Process.GetProcessesByName("osu!");
         try
         {
-            if (processes.Length != 1) return false;
-            Process process = processes[0];
+            Process[] readerTargets = processes.Where(IsMemoryReaderTarget).ToArray();
+            if (readerTargets.Length != 1) return false;
+            Process process = readerTargets[0];
             string? directory = Path.GetDirectoryName(process.MainModule?.FileName);
             return process.Id == expected.ProcessId && process.StartTime == expected.StartTime &&
                    directory is not null && PathEquals(directory, expected.ExecutableDirectory);
@@ -161,6 +168,25 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
     private static bool PathEquals(string left, string right)
         => string.Equals(Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
             Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMemoryReaderTarget(Process process)
+    {
+        try
+        {
+            // This desktop target is win-x64. A WOW64 process is therefore the x86 target
+            // selected internally by ProcessMemoryDataFinder when Target64Bit is false.
+            return IsWow64Process(process.Handle, out bool isWow64) && isWow64;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWow64Process(IntPtr processHandle,
+        [MarshalAs(UnmanagedType.Bool)] out bool wow64Process);
 
     public void Dispose()
     {

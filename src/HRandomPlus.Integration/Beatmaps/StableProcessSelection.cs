@@ -33,7 +33,7 @@ public static class StableProcessSelector
         int matchingProcesses = readerTargetProcessCount ?? candidates.Length;
         if (!readerCanBindToIdentity && matchingProcesses != 1)
             return new(StableProcessSelectionStatus.Ambiguous, null,
-                "Multiple processes named osu! are running; close the other instances or select a .osu file manually");
+                "Multiple x86 processes eligible as osu!stable are running; close the other instances or select a .osu file manually");
 
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {

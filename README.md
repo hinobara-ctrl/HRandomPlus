@@ -24,7 +24,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 
 ## Windows
 
-La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. Como el reader disponible se vincula por nombre y no por PID, la detección automática de stable sólo continúa cuando existe un único proceso llamado `osu!`; ante ambigüedad, cierra las otras instancias o usa **Select .osu manually**. **Configure osu!stable** sólo ayuda a localizar una instalación y no reemplaza la identidad del proceso en ejecución.
+La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. El reader se vincula por nombre y arquitectura, no por PID: osu!stable x86 puede convivir con osu!lazer x64, pero la detección automática se abstiene si existe más de un proceso x86 elegible. Ante esa ambigüedad, cierra las otras instancias o usa **Select .osu manually**. **Configure osu!stable** sólo ayuda a localizar una instalación y no reemplaza la identidad del proceso en ejecución.
 
 La salida predeterminada de Windows continúa creándose junto al beatmap original.
 

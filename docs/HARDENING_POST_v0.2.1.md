@@ -31,7 +31,7 @@ La tabla se volvió a medir después de unificar la detección de trills. El cos
 | Operación | Intervalo/frecuencia | Cache existente | Decisión |
 |---|---:|---|---|
 | Coordinación de fuentes | 200 ms | estado y selección anterior | Sin cambio para no alterar latencia visible. |
-| stable Windows | enumeración `osu!` antes y después de leer | sesión invalidada por PID + inicio + directorio; reader interno vinculado por nombre | Sólo continúa con un proceso objetivo y usa el `Songs` de esa misma identidad. |
+| stable Windows | enumeración `osu!` x86 antes y después de leer | sesión invalidada por PID + inicio + directorio; reader interno vinculado por nombre y arquitectura | Sólo continúa con un objetivo x86, permite lazer x64 en paralelo y usa el `Songs` de la misma identidad stable. |
 | proceso lazer | nombres `osu!`/`osu` por tick | sesión y resultado resuelto | Sin cache temporal nueva: una demora artificial podría ocultar cierre/reapertura. |
 | discovery de storage lazer | cada 5 s | storage actual | Ya acotado. |
 | runtime log | cada tick | posición, decoder y selección | Sólo se leen bytes añadidos; el scan inicial está limitado y busca hacia atrás por bloques. |
@@ -39,7 +39,7 @@ La tabla se volvió a medir después de unificar la detección de trills. El cos
 
 No se encontró una optimización adicional inequívoca que justificara cambiar la semántica temporal. El polling se cancela al cerrar y las fuentes se disponen.
 
-**Garantía multi-stable:** `OsuMemoryDataProvider 0.12.2` sólo ofrece `StructuredOsuMemoryReader(ProcessTargetOptions)` y `ProcessTargetOptions` contiene nombre, título y arquitectura, no PID. HRandomPlus no afirma binding por PID: se abstiene si el reader podría ver más de un proceso `osu!`, valida PID + inicio + directorio antes y después de la lectura, invalida el reader al cambiar la identidad y resuelve `Songs` exclusivamente desde ese directorio. No combina memoria y root de instalaciones distintas.
+**Garantía multi-stable:** `OsuMemoryDataProvider 0.12.2` sólo ofrece `StructuredOsuMemoryReader(ProcessTargetOptions)` y `ProcessTargetOptions` contiene nombre, título y arquitectura, no PID. La configuración usada selecciona x86 (`Target64Bit: false`), por lo que lazer x64 no compite con stable. HRandomPlus se abstiene si el reader podría ver más de un proceso x86 elegible, valida PID + inicio + directorio antes y después de la lectura, invalida el reader al cambiar la identidad y resuelve `Songs` exclusivamente desde ese directorio. No combina memoria y root de instalaciones distintas.
 
 ## Cobertura añadida
 

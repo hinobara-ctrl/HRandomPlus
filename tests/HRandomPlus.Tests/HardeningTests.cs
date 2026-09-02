@@ -164,12 +164,22 @@ public sealed class HardeningTests
     }
 
     [Fact]
-    public void StableSelectorFailsClosedWhenOnlyOneStableCandidateButReaderSeesAnotherNamedProcess()
+    public void StableSelectorFailsClosedWhenOnlyOneStableCandidateButReaderSeesAnotherEligibleX86Process()
     {
         StableProcessSelection result = StableProcessSelector.Select(new[] { Candidate(10, "stable-a") }, null, null,
             readerCanBindToIdentity: false, readerTargetProcessCount: 2);
         Assert.Equal(StableProcessSelectionStatus.Ambiguous, result.Status);
         Assert.True(result.Identity is null);
+    }
+
+    [Fact]
+    public void StableSelectorAllowsOneStableWhenLazerIsNotAnEligibleX86ReaderTarget()
+    {
+        StableProcessIdentity stable = Candidate(10, "stable-a");
+        StableProcessSelection result = StableProcessSelector.Select(new[] { stable }, null, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 1);
+        Assert.Equal(StableProcessSelectionStatus.Selected, result.Status);
+        Assert.Equal(stable, result.Identity);
     }
 
     [Fact]

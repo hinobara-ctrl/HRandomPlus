@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-01
 
-HEAD base: `169789992ca43a246904f9c3d990b48dfaf7f8ce` (`Fix final v0.2.1 edge cases and release consistency`)
+HEAD base: `d5c0d43` (`Finalize v0.2.1 hardening and release consistency`)
 
 Estado revisado: working tree posterior a ese commit, todavía sin commit
 
@@ -15,7 +15,7 @@ Targets: `net8.0` y `net8.0-windows`
 - `dotnet restore --locked-mode`: correcto; lockfiles sin cambios. El sandbox sin red emitió únicamente `NU1900` al consultar el feed de vulnerabilidades.
 - `dotnet build -c Release --no-restore`: correcto, 0 errores. Advertencias conocidas: `NU1900` por red restringida y `CS9057` porque Avalonia 12.1.1 usa analizadores Roslyn 4.14 con el compilador 4.11 del SDK 8 local.
 - `dotnet test -c Release --no-build`: correcto.
-- Runner ejecutable: 351 aprobados, 0 fallidos, 0 omitidos.
+- Runner ejecutable: 352 aprobados, 0 fallidos, 0 omitidos.
 - `git diff --check`: correcto.
 - Sistema ejecutor: Windows x64.
 
@@ -25,7 +25,8 @@ El commit base ya había pasado CI en Windows y Ubuntu. El working tree actual i
 
 `OsuMemoryDataProvider 0.12.2` no ofrece binding por PID: sus constructores reciben `ProcessTargetOptions`, que sólo expone nombre, título de ventana y arquitectura. La integración adopta por ello una política fail-closed:
 
-- sólo crea/usa el reader cuando existe un único proceso objetivo llamado `osu!`;
+- replica el filtro x86 de `ProcessTargetOptions(..., Target64Bit: false)`, por lo que lazer x64 no crea una falsa ambigüedad;
+- sólo crea/usa el reader cuando existe un único proceso x86 elegible como stable;
 - conserva una identidad formada por PID, hora de inicio y directorio ejecutable;
 - valida esa identidad antes y después de leer memoria;
 - invalida y dispone el reader al terminar, reutilizar PID o cambiar de instancia;
@@ -46,17 +47,17 @@ Después de timeout o cancelación, `SystemProcessRunner` intenta terminar el á
 - La versión de nombres de ZIP, source, GPL source y release candidate se lee de `Directory.Build.props`; no quedan nombres `v0.2.1-playtest` hardcodeados en el workflow.
 - El YAML fue parseado correctamente y contiene los cinco jobs esperados.
 - Política vigente: dos ZIP binarios framework-dependent, source ZIP, GPL source ZIP y `SHA256SUMS.txt`.
-- Se generaron candidatos locales framework-dependent para pruebas: Windows x64 (13.708.840 bytes, SHA-256 `27b743f490f3a6c8ca4144c1e111cbcc2a47d223ee786f493fe6e4fee622abff`) y Linux x64 (38.380.993 bytes, SHA-256 `68ec06b06a9b90fffdce2085b19035f47f66ee54f01e501ee864215f2ab1425f`). Ambos ZIP pasaron verificación CRC/contenido y Linux conserva modo ejecutable `0755`.
+- Se generaron candidatos locales framework-dependent para pruebas: Windows x64 (13.709.026 bytes, SHA-256 `b84539b948fa06e7f4480a7bc2a21accad0af2fa33cbe379c51d103347d4580d`) y Linux x64 (38.381.030 bytes, SHA-256 `b0f26b4f67edd797ef767126a3bf7ac6fd0b035722f2a46195346076cd00b1ea`). Ambos ZIP pasaron verificación CRC/contenido y Linux conserva modo ejecutable `0755`.
 - Estos ZIP locales sirven para smoke tests, pero no sustituyen los assets definitivos del pipeline. Los source ZIP, GPL source ZIP y checksums del conjunto completo permanecen pendientes de CI.
 - No cambiaron dependencias, licencias, lockfiles ni configuración de packaging.
 
 ## Verificaciones manuales
 
-Las pruebas manuales históricas documentadas de Windows y Linux/VM permanecen válidas como línea base. Esta pasada no repitió un smoke test con un proceso osu!stable real ni ejecutó Linux; no se inventa ese resultado. Antes de publicar la release conviene confirmar en Windows: una sola instancia stable detecta el mapa, dos procesos `osu!` producen ambigüedad y el fallback manual sigue operativo.
+Las pruebas manuales de Windows y Linux/VM están completas. En Windows se confirmó una instancia stable, cierre/reapertura, ruta configurada antigua, fallback y alternancia por selección más reciente con stable x86 y lazer x64 abiertos simultáneamente. En Linux se confirmó stable/tosu, lazer, generación e importación. El caso de dos procesos x86 elegibles permanece cubierto de forma automatizada y falla cerrado.
 
 ## Limitaciones conocidas
 
-- No existe binding real por PID en la dependencia de memoria actual; la garantía se obtiene absteniéndose cuando el nombre de proceso no identifica un objetivo único.
+- No existe binding real por PID en la dependencia de memoria actual; la garantía se obtiene filtrando por la misma arquitectura x86 usada por el reader y absteniéndose cuando quedan varios objetivos elegibles.
 - Las advertencias `CS9057` dependen del SDK 8 local; CI usa SDK 10 para compilar los mismos targets .NET 8.
 - La validación Ubuntu del working tree y los hashes finales sólo existirán después del push/pipeline.
 - Pesos de scoring finitos extremadamente grandes continúan registrados como mejora futura no bloqueante.
