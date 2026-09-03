@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: notas congeladas de v0.2.1-playtest; no son autoritativas para el HEAD actual.
+
 # HRandomPlus v0.2.1-playtest
 
 Esta actualización cierra la fase de robustez y reproducibilidad posterior a v0.2.0. Mantiene los presets, seeds y output determinista, e incorpora las decisiones de producto aprobadas para dual-stage 10K+, trills, pausas y presentación BPM.
@@ -41,11 +44,12 @@ Esta actualización cierra la fase de robustez y reproducibilidad posterior a v0
 - Redacta todas las apariciones válidas del directorio personal en diagnósticos compartibles.
 - Evita mezclar memoria y `Songs` de instalaciones stable distintas: Windows replica el filtro x86 del reader, permite que stable conviva con lazer x64, falla de forma cerrada ante varios objetivos x86 elegibles y usa siempre el root de la identidad stable validada.
 - Acota la espera posterior a timeout/cancelación de procesos auxiliares, incluso si el intento de terminación falla.
+- Reemplaza un `.osz` existente sin borrar primero el destino, evitando perder la salida anterior si falla la operación final de overwrite.
 - Obtiene los nombres de assets de CI desde la versión canónica de `Directory.Build.props`.
 
-La suite automatizada completa contiene ahora 352 pruebas aprobadas. Las confirmaciones manuales de Windows y Linux permanecen documentadas por separado.
+La suite automatizada completa contiene ahora 353 pruebas aprobadas. Las confirmaciones manuales de Windows y Linux permanecen documentadas por separado.
 
-El `storage.ini` personalizado ya fue verificado en Windows y Linux reales. Las comprobaciones manuales de regresión en Linux para las rutas modificadas de Wine/importación siguen siendo un paso del candidato a cargo del propietario.
+El `storage.ini` personalizado y las regresiones P0/P1 fueron verificados en Windows y Linux reales. Solo permanecen sin ejecución los fixtures excepcionales P2 que el checklist declara explícitamente no bloqueantes.
 
 HRandomPlus permanece bajo `GPL-3.0-or-later`. No cambió ninguna dependencia ni el modelo de licencias; los avisos de terceros y requisitos de fuentes correspondientes existentes siguen vigentes.
 

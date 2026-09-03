@@ -90,8 +90,7 @@ public static class Program
         Console.WriteLine($"Exists: {(resolution.Path is not null && File.Exists(resolution.Path) ? "Yes" : "No")}");
         string outputPath = resolution.Path is null
             ? AppPaths.OutputDirectory
-            : BeatmapGenerationService.FindUniquePath(resolution.Path, " H-RANDOM+",
-                settings.OutputToBeatmapFolder ? null : AppPaths.OutputDirectory);
+            : BeatmapGenerationService.FindUniquePath(resolution.Path, " H-RANDOM+", outputDirectory: null);
         Console.WriteLine($"Output path: {DiagnosticPathRedactor.Redact(outputPath)}");
         Console.WriteLine("Output writable: Not verified (read-only diagnostic)");
         return resolution.Success ? 0 : 4;

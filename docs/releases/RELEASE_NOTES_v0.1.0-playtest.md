@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: notas congeladas de v0.1.0-playtest; no son autoritativas para el HEAD actual.
+
 # HRandomPlus v0.1.0-playtest
 
 Primera distribución de playtest para osu!stable.
@@ -55,6 +58,6 @@ Verifica las descargas mediante `SHA256SUMS.txt`. Los artifacts de GitHub Action
 - `HRandomPlus-v0.1.0-playtest-source.zip` contiene las fuentes de HRandomPlus correspondientes a los binarios candidatos.
 - `HRandomPlus-v0.1.0-playtest-gpl-source.zip` contiene el snapshot upstream completo de ProcessMemoryDataFinder en el commit `122dd102fe272de30471cf1f317805cb49ac23a4`. Los tags `osu_v0.12.2` y `process_v0.10.2` resuelven a ese commit.
 
-Consulta `THIRD_PARTY_NOTICES.md`, `docs/DEPENDENCY_LICENSE_AUDIT.md` y `docs/GPL_SOURCE_MANIFEST.md` para la auditoría técnica y la correspondencia exacta de fuentes. El binario Windows, ambos archivos de fuentes correspondientes y `SHA256SUMS.txt` deben publicarse juntos.
+Consulta `THIRD_PARTY_NOTICES.md`, `docs/current/DEPENDENCY_LICENSE_AUDIT.md` y `docs/current/GPL_SOURCE_MANIFEST.md` para la auditoría técnica y la correspondencia exacta de fuentes. El binario Windows, ambos archivos de fuentes correspondientes y `SHA256SUMS.txt` deben publicarse juntos.
 
 **RELEASE DE WINDOWS LISTA:** HRandomPlus y sus componentes GPL enlazados de lectura de memoria se distribuyen bajo `GPL-3.0-or-later`; las fuentes correspondientes exactas y todos los avisos de terceros aplicables acompañan al candidato.

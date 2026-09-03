@@ -1,6 +1,9 @@
+<!-- document-status: historical -->
+> Tipo de documento: evidencia histórica de v0.2.1; no es autoritativo para el HEAD actual.
+
 # Endurecimiento dirigido de v0.2.1
 
-> **Estado histórico:** este documento registra la auditoría cerrada en el commit `ef9a30f`; las cifras de 146 pruebas y cuatro publicaciones del resumen corresponden a ese momento. El estado posterior de `v0.2.1-playtest` es 188 pruebas aprobadas y dos paquetes binarios principales framework-dependent. Consulta el [checklist funcional vigente](CHECKLIST_FUNCIONAL_FINAL_v0.2.1.md) y las [notas actuales de la release](RELEASE_NOTES_v0.2.1-playtest.md).
+> **Estado histórico:** este documento registra la auditoría cerrada en el commit `ef9a30f`; las cifras de 146 pruebas y cuatro publicaciones del resumen corresponden a ese momento. El estado posterior quedó registrado en el [checklist funcional de cierre](2026-09-01_CHECKLIST_FUNCIONAL_FINAL_v0.2.1.md) y en las [notas congeladas de la release](../releases/RELEASE_NOTES_v0.2.1-playtest.md).
 
 ## Causa raíz
 
@@ -55,5 +58,5 @@ Este endurecimiento no cambió el randomizador, el output del parser, las seeds,
 - Publicación Windows x64: autocontenida y dependiente del framework aprobadas.
 - Publicación cruzada Linux x64: autocontenida y dependiente del framework aprobadas.
 - Ejecución CI en Ubuntu: configurada y requerida por el grafo del candidato; se ejecutará después del push.
-- Comprobaciones en Linux real del delta posterior a la auditoría: dejadas intencionalmente al propietario en `LINUX_POST_AUDIT_TESTS_v0.2.1.md`.
+- Comprobaciones en Linux real del delta posterior a la auditoría: registradas en `2026-08-30_LINUX_POST_AUDIT_TESTS_v0.2.1.md`.
 - Escaneo de secretos/datos personales del árbol y el parche actuales: aprobado; no se versiona ninguna base Realm ni runtime log.

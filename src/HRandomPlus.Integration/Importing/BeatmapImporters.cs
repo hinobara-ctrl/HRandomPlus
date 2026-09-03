@@ -71,6 +71,185 @@ public sealed class DirectFileImporter : IBeatmapImporter
     }
 }
 
+public sealed class NativeSideFileImporter : IBeatmapImporter
+{
+    public Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string generated = Path.GetFullPath(request.GeneratedPath);
+        if (!File.Exists(generated))
+            return Task.FromResult(new BeatmapImportResult("native-side-copy", false, false, generated,
+                "The generated beatmap could not be found."));
+
+        string? destination = null;
+        try
+        {
+            string directory = Path.GetDirectoryName(Path.GetFullPath(request.OriginalPath))
+                ?? throw new InvalidDataException("The original beatmap has no parent directory.");
+            destination = UniquePath(Path.Combine(directory, Path.GetFileName(generated)));
+            File.Copy(generated, destination, overwrite: false);
+            if (!FilesMatch(generated, destination))
+                throw new IOException("The copied beatmap does not match the generated file.");
+            try { File.Delete(generated); } catch { }
+            return Task.FromResult(new BeatmapImportResult("native-side-copy", true, true, destination,
+                "Difficulty copied beside the original beatmap."));
+        }
+        catch (Exception ex)
+        {
+            if (destination is not null)
+            {
+                try { File.Delete(destination); } catch { }
+            }
+            return Task.FromResult(new BeatmapImportResult("native-side-copy", true, false, generated,
+                $"The difficulty was generated, but it could not be copied beside the original beatmap: {ex.Message}"));
+        }
+    }
+
+    private static string UniquePath(string candidate)
+    {
+        if (!File.Exists(candidate)) return candidate;
+        string directory = Path.GetDirectoryName(candidate)!;
+        string name = Path.GetFileNameWithoutExtension(candidate);
+        string extension = Path.GetExtension(candidate);
+        for (int index = 2; ; index++)
+        {
+            string numbered = Path.Combine(directory, $"{name} {index}{extension}");
+            if (!File.Exists(numbered)) return numbered;
+        }
+    }
+
+    private static bool FilesMatch(string source, string destination)
+    {
+        var sourceInfo = new FileInfo(source);
+        var destinationInfo = new FileInfo(destination);
+        if (!sourceInfo.Exists || !destinationInfo.Exists || sourceInfo.Length != destinationInfo.Length) return false;
+        using FileStream sourceStream = File.OpenRead(source);
+        using FileStream destinationStream = File.OpenRead(destination);
+        return SHA256.HashData(sourceStream).SequenceEqual(SHA256.HashData(destinationStream));
+    }
+}
+
+public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
+{
+    private readonly IBeatmapImporter inner;
+
+    public PortableFallbackArchiveImporter(IBeatmapImporter inner) => this.inner = inner;
+
+    public async Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        BeatmapImportResult result = await inner.ImportAsync(request, cancellationToken).ConfigureAwait(false);
+        if (result.Success || result.ImportArchivePath is not null) return result;
+
+        try
+        {
+            string archive = CreateArchive(request);
+            return result with
+            {
+                ImportArchivePath = archive,
+                PreservedOutputPath = archive,
+                FallbackUsed = true,
+                Message = result.Message + $" A portable .osz was preserved at: {archive}"
+            };
+        }
+        catch (Exception ex)
+        {
+            return result with
+            {
+                Message = result.Message + $" The portable .osz fallback also failed: {ex.Message}"
+            };
+        }
+    }
+
+    private static string CreateArchive(BeatmapImportRequest request)
+    {
+        string generated = Path.GetFullPath(request.GeneratedPath);
+        if (!File.Exists(generated)) throw new FileNotFoundException("The generated beatmap no longer exists.", generated);
+        string fallbackDirectory = Path.GetFullPath(request.FallbackDirectory);
+        Directory.CreateDirectory(fallbackDirectory);
+        string archivePath = UniqueArchivePath(fallbackDirectory, Path.GetFileNameWithoutExtension(generated));
+
+        var resources = new List<(string SourcePath, string EntryName)>();
+        if (request.LazerContext is not null)
+        {
+            foreach (BeatmapResource resource in request.LazerContext.SetResources)
+            {
+                if (!File.Exists(resource.BlobPath) ||
+                    resource.LogicalName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)) continue;
+                resources.Add((resource.BlobPath, SafeEntryName(resource.LogicalName)));
+            }
+        }
+        else
+        {
+            string sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(request.OriginalPath))
+                ?? throw new InvalidDataException("The original beatmap has no parent directory.");
+            StringComparison pathComparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            string fallbackPrefix = fallbackDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            foreach (string resourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                string fullResourcePath = Path.GetFullPath(resourcePath);
+                if (fullResourcePath.StartsWith(fallbackPrefix, pathComparison) ||
+                    Path.GetExtension(fullResourcePath).Equals(".osu", StringComparison.OrdinalIgnoreCase)) continue;
+                resources.Add((fullResourcePath,
+                    SafeEntryName(Path.GetRelativePath(sourceDirectory, fullResourcePath))));
+            }
+        }
+
+        try
+        {
+            using ZipArchive archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+            var entries = new HashSet<string>(StringComparer.Ordinal);
+            foreach ((string sourcePath, string entryName) in resources)
+            {
+                if (entries.Add(entryName))
+                    archive.CreateEntryFromFile(sourcePath, entryName, CompressionLevel.Optimal);
+            }
+
+            string generatedName = SafeEntryName(Path.GetFileName(generated));
+            ZipArchiveEntry generatedEntry = archive.CreateEntry(generatedName, CompressionLevel.Optimal);
+            using Stream destination = generatedEntry.Open();
+            if (request.LazerContext is null)
+            {
+                using FileStream source = File.OpenRead(generated);
+                source.CopyTo(destination);
+            }
+            else
+            {
+                OsuBeatmapDocument document = OsuBeatmapDocument.Parse(generated, File.ReadAllBytes(generated));
+                document.SetBeatmapId(0);
+                document.SetBeatmapSetId(0);
+                destination.Write(document.ToBytes());
+            }
+            return archivePath;
+        }
+        catch
+        {
+            try { File.Delete(archivePath); } catch { }
+            throw;
+        }
+    }
+
+    private static string UniqueArchivePath(string directory, string name)
+    {
+        string candidate = Path.Combine(directory, $"{name}.osz");
+        for (int index = 2; File.Exists(candidate); index++)
+            candidate = Path.Combine(directory, $"{name} {index}.osz");
+        return candidate;
+    }
+
+    private static string SafeEntryName(string value)
+    {
+        string[] parts = value.Replace('\\', '/').TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || parts.Any(part => part is "." or ".."))
+            throw new InvalidDataException($"Unsafe archive resource name: {value}");
+        return string.Join('/', parts);
+    }
+}
+
 public interface IExternalFileLauncher
 {
     bool Launch(string filePath, string? executablePath, out string? error);
@@ -235,8 +414,7 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
 
 public static class BeatmapImportPolicy
 {
-    public static bool ShouldUseWineSide(bool isLinux, bool outputBesideBeatmap)
-        => isLinux && outputBesideBeatmap;
+    public static bool ShouldUseWineSide(bool isLinux) => isLinux;
 }
 
 public sealed class WineSideFileImporter : IBeatmapImporter

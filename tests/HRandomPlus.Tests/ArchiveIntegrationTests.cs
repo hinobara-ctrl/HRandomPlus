@@ -136,6 +136,31 @@ public class ArchiveIntegrationTests
     }
 
     [Fact]
+    public void OverwriteReplacesAnExistingArchiveWithTheValidatedResult()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusOverwrite", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string input = Path.Combine(root, "input.osz");
+            string output = Path.Combine(root, "output.osz");
+            byte[] valid = TestBeatmaps.Mania(4,
+                Enumerable.Range(0, 8).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)));
+            using (ZipArchive archive = ZipFile.Open(input, ZipArchiveMode.Create))
+                Add(archive, "map.osu", valid);
+            File.WriteAllText(output, "previous output");
+
+            ArchiveReport report = new OsuArchive().Process(input, output,
+                new HRandomConfig { Seed = 1 }, Array.Empty<string>(), overwrite: true);
+
+            Assert.Single(report.Difficulties);
+            using ZipArchive result = ZipFile.OpenRead(output);
+            Assert.Single(result.Entries.Where(entry => entry.Name.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void ResolveInsideUsesPlatformPathCaseSemantics()
     {
         string parent = Path.Combine(Path.GetTempPath(), "HRandomPlusArchiveCase", Guid.NewGuid().ToString("N"));

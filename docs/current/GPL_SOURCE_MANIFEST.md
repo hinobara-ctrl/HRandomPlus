@@ -1,3 +1,4 @@
+<!-- document-status: current -->
 # Manifiesto de fuentes correspondientes GPL
 
 Candidato de release: `v0.2.1-playtest`

@@ -28,12 +28,12 @@ Los checks de stable documentan regresiones ya verificadas. Los checks de lazer 
 - [x] Generar S-Random tres veces sobre el mismo mapa sin cambiar selección: Version y filename deben ser únicos.
 - [x] Repetir el caso con H-Random y Custom.
 - [x] Con output junto al mapa, confirmar que Wine-side aparece sin F5.
-- [x] Con output central, confirmar que no se copia una segunda salida a `Songs`.
+- [ ] Si fallan tanto la copia Wine-side como la copia nativa, confirmar que aparece un `.osz` portable en `Failed Imports`, junto al ejecutable.
 - [x] Fallback conserva el output y recomienda F5 (**mock automatizado**; no se provocó un fallo real en la VM).
 - [x] Paths con espacios, apóstrofe, `!`, acentos y Unicode (**integración automatizada**).
 - [x] Confirmar la tabla BPM/snaps y editar manualmente el BPM.
 - [x] Cerrar HRandomPlus y confirmar que no quedan procesos auxiliares.
-- [x] Ejecutar las pruebas A/B de [docs/LINUX_IMPORT_AB_TEST.md](docs/LINUX_IMPORT_AB_TEST.md).
+- [x] Ejecutar las pruebas A/B de [docs/current/LINUX_IMPORT_AB_TEST.md](docs/current/LINUX_IMPORT_AB_TEST.md).
 - [x] En el build `r2`, confirmar que un mapa resuelto mediante la ruta configurada aparece como detección automática por tosu, no como selección manual.
 - [x] Seleccionar un `.osu` manual mientras tosu detecta un mapa: la selección manual permanece mientras osu! siga en ese mismo mapa.
 - [x] Después de la prueba manual anterior, cambiar de mapa dentro de osu!: la detección automática recupera el control con el mapa nuevo.
@@ -56,7 +56,7 @@ Los checks de stable documentan regresiones ya verificadas. Los checks de lazer 
 - [x] Probar almacenamiento estándar y uno configurado por `storage.ini`.
 - [x] Confirmar que el flujo stable + osu-winello + tosu sigue funcionando por separado.
 
-Consulta el procedimiento y las limitaciones en [docs/LAZER_IMPLEMENTATION.md](docs/LAZER_IMPLEMENTATION.md).
+Consulta el procedimiento y las limitaciones en [docs/current/LAZER_IMPLEMENTATION.md](docs/current/LAZER_IMPLEMENTATION.md).
 
 ## Delta v0.2.1 — comprobación manual del propietario en Linux
 

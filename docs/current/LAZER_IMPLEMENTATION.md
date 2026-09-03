@@ -1,3 +1,4 @@
+<!-- document-status: current -->
 # Implementación de osu!lazer (v0.2.x actual)
 
 ## Base upstream auditada

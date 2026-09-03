@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: evidencia histórica de v0.1.0-playtest; no es autoritativo para el HEAD actual.
+
 # Preparación de release: v0.1.0-playtest
 
 > Documento histórico. No describe la política vigente de v0.2.1, que distribuye dos binarios framework-dependent y conserva las fuentes como assets adicionales.
@@ -24,7 +27,7 @@ Fecha: 2026-08-29
 - Publicación Linux: **PUBLICACIÓN CRUZADA APROBADA**; el comportamiento en Linux real está respaldado por el registro completo del playtest pre-lazer.
 - SDK local: 8.0.424; runtime packs autocontenidos: 8.0.30.
 - Decisión de SDK en CI: conservar el SDK estable `10.0.x` para compilar `net8.0`/`net8.0-windows` y satisfacer las expectativas de los analizadores actuales de Avalonia. No se añadió `global.json` porque impediría compilar en el entorno local que en ese momento solo tenía SDK 8.
-- Custom persistente, migración de GUID e importación/exportación validada de perfiles están implementados localmente y documentados en `docs/PROFILE_SYSTEM_DESIGN.md`; los playtests reales de UI fueron aprobados en Windows y la VM Linux sin bugs reportados.
+- Custom persistente, migración de GUID e importación/exportación validada de perfiles están implementados localmente y documentados en `docs/current/PROFILE_SYSTEM_DESIGN.md`; los playtests reales de UI fueron aprobados en Windows y la VM Linux sin bugs reportados.
 
 ## Assets candidatos
 
@@ -50,6 +53,6 @@ Los artifacts de GitHub Actions son outputs temporales de CI. Los assets de GitH
 
 - Tag previsto: `v0.1.0-playtest`.
 - Destino previsto: el futuro commit de preparación autorizado por el propietario, no `de92500`.
-- Notas de release: `docs/RELEASE_NOTES_v0.1.0-playtest.md`.
+- Notas de release: `docs/releases/RELEASE_NOTES_v0.1.0-playtest.md`.
 - **LISTO PARA TAG TRAS REVISIÓN DEL PROPIETARIO:** la condición técnica de licencias está cerrada; la visibilidad y el commit/push/tag/Release reales siguen siendo acciones del propietario.
 - Durante esta preparación no se creó ningún commit, push, tag ni Release.

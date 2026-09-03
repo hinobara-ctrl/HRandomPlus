@@ -109,9 +109,7 @@ public sealed class OsuArchive
             ValidateArchive(pendingOutput, originalHashes, processedOriginalPaths, expected);
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-            if (File.Exists(outputPath))
-                File.Delete(outputPath);
-            File.Move(pendingOutput, outputPath);
+            File.Move(pendingOutput, outputPath, overwrite);
             return report;
         }
         finally

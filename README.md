@@ -4,11 +4,13 @@ Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom 
 
 Versión de desarrollo: **v0.2.1-playtest**.
 
+HRandomPlus está completo para su propósito actual y entra en modo mantenimiento, centrado principalmente en corregir bugs, regresiones e incompatibilidades.
+
 ## Funciones
 
 - Presets protegidos H-Random/S-Random, Custom persistente y perfiles personales con identidad propia.
 - Importación y exportación segura de perfiles `.hrp-profile.json` entre Windows y Linux.
-- Seeds reproducibles, guardadas también en perfiles personalizados, y rangos parciales.
+- Seed aleatoria nueva en cada generación, mostrando siempre el valor utilizado; al escribir una seed manualmente queda fija y reproducible. Los perfiles personalizados conservan esa elección.
 - Protección de long notes y validación antes de escribir.
 - Modo opcional **Preserve dual stages (10K+)**: evita cruces directos entre los stages laterales y trata el centro impar como compartido; permanece deshabilitado en mapas inferiores a 10K.
 - Detección de trills consistente entre scoring y estadísticas, incluidos acordes compatibles y corte tras pausas prolongadas.
@@ -26,7 +28,7 @@ Versión de desarrollo: **v0.2.1-playtest**.
 
 La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. El reader se vincula por nombre y arquitectura, no por PID: osu!stable x86 puede convivir con osu!lazer x64, pero la detección automática se abstiene si existe más de un proceso x86 elegible. Ante esa ambigüedad, cierra las otras instancias o usa **Select .osu manually**. **Configure osu!stable** sólo ayuda a localizar una instalación y no reemplaza la identidad del proceso en ejecución.
 
-La salida predeterminada de Windows continúa creándose junto al beatmap original.
+En osu!stable, Windows copia la dificultad junto al beatmap original. Si la copia no puede completarse, conserva un `.osz` portable dentro de `Failed Imports`, junto al ejecutable de HRandomPlus.
 
 ## osu!lazer nativo (Windows y Linux)
 
@@ -37,7 +39,7 @@ La salida predeterminada de Windows continúa creándose junto al beatmap origin
 
 No hacen falta tosu, Wine, `sudo` ni configurar una carpeta `Songs` para lazer nativo. Se reconocen las rutas estándar `%APPDATA%\osu` y `~/.local/share/osu`, el `FullPath` de `storage.ini` y almacenamientos portables compatibles junto al ejecutable. Si el log actual solo publica el nombre visible y más de una dificultad coincide, HRandomPlus deja la selección sin resolver en vez de elegir un mapa arbitrario.
 
-La sección **Platform and output** configura exclusivamente la integración de osu!stable para Linux mediante osu!-Wine/tosu. Permanece deshabilitada en Windows y mientras osu!lazer sea el origen activo.
+La sección **Linux stable / tosu** existe exclusivamente en Linux y configura la conexión de osu!stable mediante osu!-Wine/tosu. No aparece en Windows y permanece deshabilitada mientras osu!lazer sea el origen activo.
 
 Mientras osu!lazer sea el origen activo, **Select .osu manually** y los controles de configuración de osu!stable permanecen deshabilitados. La selección manual es un fallback exclusivo del flujo stable.
 
@@ -67,18 +69,11 @@ Para instalaciones personalizadas, usa **Configure native osu! path** y seleccio
 
 Si eliges un `.osu` con **Select .osu manually**, esa selección conserva prioridad mientras osu! siga mostrando el mismo mapa que tosu ya había detectado. Al cambiar de mapa dentro de osu!, HRandomPlus retoma la detección automática.
 
-Las configuraciones nuevas de Linux escriben de forma predeterminada junto al beatmap. Desmarcar **Write beside the original beatmap** usa:
+HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más una copia ejecutada dentro del mismo entorno Wine de osu!stable. Las rutas viajan en variables de entorno, fuera del texto interpretado por `cmd`, con expansión retardada desactivada; no se construyen rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5.
 
-```text
-$XDG_DATA_HOME/HRandomPlus/Generated Beatmaps
-~/.local/share/HRandomPlus/Generated Beatmaps
-```
+Si ninguna forma de importación o copia puede completarse después de generar la dificultad, Windows y Linux conservan un `.osz` portable en la carpeta `Failed Imports`, junto al ejecutable de HRandomPlus. El archivo puede abrirse o importarse manualmente en osu!stable u osu!lazer.
 
-Una preferencia ya guardada se respeta al actualizar. La aplicación siempre conserva el `.osu` generado aunque falle la actualización/importación.
-
-Cuando se escribe junto al beatmap, HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más una copia ejecutada dentro del mismo entorno Wine de osu!stable. Las rutas viajan en variables de entorno, fuera del texto interpretado por `cmd`, con expansión retardada desactivada; no se construyen rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5; si también falla el fallback, conserva el output central para importación manual.
-
-La [prueba A/B real](docs/LINUX_IMPORT_AB_TEST.md) confirmó que la copia Linux nativa necesitó F5 mientras la copia Wine-side fue detectada sin F5. Esto verifica el comportamiento funcional, no la API o mecanismo interno exacto de notificación del filesystem.
+La [prueba A/B real](docs/current/LINUX_IMPORT_AB_TEST.md) confirmó que la copia Linux nativa necesitó F5 mientras la copia Wine-side fue detectada sin F5. Esto verifica el comportamiento funcional, no la API o mecanismo interno exacto de notificación del filesystem.
 
 ## Diagnóstico tosu
 
@@ -111,10 +106,10 @@ Un acorde continúa un trill cuando contiene la columna alternante esperada pero
 ## Perfiles
 
 - **H-Random** y **S-Random** son presets protegidos: siempre se reconstruyen desde los valores del código y no pueden sobrescribirse ni eliminarse.
-- **Custom** es un único perfil editable. **Save Custom** conserva todos sus parámetros y la seed en la configuración personal; **Reset Custom** restaura sus valores iniciales después de pedir confirmación.
+- **Custom** es un único perfil editable. **Save Profile** conserva todos sus parámetros y la seed en la configuración personal; **Reset** restaura sus valores iniciales después de pedir confirmación.
 - **Duplicate** crea una variante personal independiente con GUID nuevo. Solo los perfiles personales pueden eliminarse.
-- **Export profile** genera un archivo UTF-8 `.hrp-profile.json` con el nombre, descripción, GUID, versiones de formato/motor y todos los parámetros del randomizer.
-- **Import profile** valida el archivo y muestra una previsualización. Si el GUID ya existe permite actualizarlo o importar una copia; los nombres repetidos reciben un sufijo y `H-Random`, `S-Random` y `Custom` están reservados.
+- **Export Profile** genera un archivo UTF-8 `.hrp-profile.json` con el nombre, descripción, GUID, versiones de formato/motor y todos los parámetros del randomizer.
+- **Import Profile** valida el archivo y muestra una previsualización. Si el GUID ya existe permite actualizarlo o importar una copia; los nombres repetidos reciben un sufijo y `H-Random`, `S-Random` y `Custom` están reservados.
 
 Los perfiles exportados nunca incluyen rutas de osu!, tosu, preferencias de output, logs ni información del mapa actual. Los perfiles importados se copian al `config.json` personal, por lo que el archivo descargado puede eliminarse después. Las configuraciones de versiones anteriores se migran automáticamente: el último perfil histórico llamado Custom se convierte en el Custom persistente y los demás se conservan con nombres únicos.
 
@@ -179,12 +174,18 @@ La lectura y extracción de `.osz` usa límites generosos y copia por streaming 
 
 El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 1K–18K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side y sus fallbacks, logs/rotación/storage/blob/ambigüedad/arbitraje de lazer y creación segura del `.osz` de importación.
 
+La consistencia de versión, targets, distribución, workflow y clasificación documental se comprueba localmente y en CI con:
+
+```powershell
+pwsh -File scripts/check-repo-consistency.ps1
+```
+
 Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PLAYTEST_CHECKLIST.md).
 
 ## Licencias
 
-HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
+HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/current/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
 
-La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Los dos paquetes distribuidos dependen del framework y no redistribuyen .NET.
+La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/current/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Los dos paquetes distribuidos dependen del framework y no redistribuyen .NET.
 
-Los artefactos de GitHub Actions son temporales. Los ZIP y `SHA256SUMS.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag.
+Los artefactos de GitHub Actions son temporales. Los ZIP, `SHA256SUMS.txt` y `release-evidence.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag. La evidencia automática registra el mismo run que produjo los binarios, pero no sustituye pruebas manuales de plataforma.

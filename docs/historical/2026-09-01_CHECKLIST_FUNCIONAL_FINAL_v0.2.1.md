@@ -1,8 +1,11 @@
+<!-- document-status: historical -->
+> Tipo de documento: evidencia histórica de v0.2.1; no es autoritativo para el HEAD actual.
+
 # Checklist funcional final — v0.2.1
 
 Objetivo: confirmar que los binarios posteriores al endurecimiento siguen funcionando en integraciones reales, sin repetir comprobaciones ya demostradas explícitamente.
 
-Código de producción del binario local auditado: `ef9a30f`. La distribución vigente contiene un paquete framework-dependent por plataforma.
+Base histórica del checklist: `ef9a30f`. Las comprobaciones manuales se revalidaron sobre el working tree incorporado después en `d5882cd`, incluida la alternancia Windows entre stable y lazer. La distribución vigente contiene un paquete framework-dependent por plataforma.
 
 ## Evidencia ya cerrada — no repetir
 
@@ -75,7 +78,7 @@ No es necesario recorrer todos los parámetros ni repetir cada perfil. Para el e
 ## P1 — regresiones recomendadas — APROBADAS
 
 - [x] Windows: repetir la importación de lazer usando el `storage.ini` personalizado ya conocido, especialmente cierre → reapertura sobre el mismo storage.
-- [x] Linux: confirmar output central; no debe copiar silenciosamente otra dificultad a `Songs`.
+- [ ] Linux: confirmar copia Wine-side normal y, si también falla la copia nativa, creación del `.osz` en `Failed Imports` junto al ejecutable.
 - [x] Windows/Linux: mantener HRandomPlus abierto 10–15 minutos alternando mapas; confirmar que no se congela, no pierde la fuente activa y no aumenta la memoria de forma continua.
 - [x] Windows/Linux: cerrar la aplicación durante una detección normal y confirmar salida rápida sin procesos remanentes.
 

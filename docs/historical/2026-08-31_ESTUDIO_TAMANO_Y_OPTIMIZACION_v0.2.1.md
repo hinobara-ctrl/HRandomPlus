@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: estudio histórico de v0.2.1; no es autoritativo para el HEAD actual.
+
 # Estudio de tamaño y oportunidades de optimización — v0.2.1
 
 > Documento histórico de medición. La política vigente distribuye únicamente los dos paquetes x64 framework-dependent; las variantes self-contained citadas aquí ya no son descargas normales.

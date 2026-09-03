@@ -63,36 +63,37 @@ public class ApplicationTests
     }
 
     [Fact]
-    public void NewSettingsWriteBesideBeatmapByDefault()
-    {
-        Assert.True(new AppSettings().OutputToBeatmapFolder);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OutputLocationPreferenceRoundTrips(bool expected)
-    {
-        string root = Path.Combine(Path.GetTempPath(), "HRandomPlusOutputSetting", Guid.NewGuid().ToString("N"));
-        try
-        {
-            var store = new SettingsStore(root);
-            store.Save(new AppSettings { OutputToBeatmapFolder = expected });
-            Assert.Equal(expected, store.Load().OutputToBeatmapFolder);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, true);
-        }
-    }
-
-    [Fact]
     public void ReadOnlySettingsLoadDoesNotCreateFiles()
     {
         string root = Path.Combine(Path.GetTempPath(), "HRandomPlusReadOnlySettings", Guid.NewGuid().ToString("N"));
         AppSettings settings = new SettingsStore(root).LoadReadOnly();
-        Assert.True(settings.OutputToBeatmapFolder);
         Assert.True(!Directory.Exists(root));
+    }
+
+    [Fact]
+    public void LegacyOutputLocationSettingIsIgnoredWithoutBreakingConfiguration()
+    {
+        string root = TemporaryDirectory("LegacyOutputLocation");
+        try
+        {
+            Directory.CreateDirectory(root);
+            string path = Path.Combine(root, "config.json");
+            File.WriteAllText(path, """
+                {
+                  "outputToBeatmapFolder": false,
+                  "lastProfile": "S-Random",
+                  "wholeMap": false
+                }
+                """);
+            var store = new SettingsStore(root);
+            AppSettings loaded = store.Load();
+            Assert.Equal("S-Random", loaded.LastProfile);
+            Assert.True(!loaded.WholeMap);
+
+            store.Save(loaded);
+            Assert.True(!File.ReadAllText(path).Contains("outputToBeatmapFolder", StringComparison.OrdinalIgnoreCase));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     [Fact]
@@ -293,6 +294,34 @@ public class ApplicationTests
     }
 
     [Fact]
+    public void RegeneratingTheSelectedGeneratedDifficultyAdvancesInsteadOfDuplicatingItsSuffix()
+    {
+        string root = TemporaryDirectory("RegeneratedSelectedDifficulty");
+        Directory.CreateDirectory(root);
+        try
+        {
+            string input = Path.Combine(root, "Artist - Song [Life].osu");
+            File.WriteAllBytes(input, TestBeatmaps.Mania(4,
+                Enumerable.Range(0, 12).Select(i => TestBeatmaps.Note(4, i % 4, 1000 + i * 100)), "Life"));
+            var service = new BeatmapGenerationService();
+            var config = new HRandomConfig { Seed = 123, DifficultySuffix = " CUSTOM" };
+
+            GenerationResult first = service.Generate(input, config, null);
+            GenerationResult second = service.Generate(first.OutputPath, config, null);
+            GenerationResult third = service.Generate(second.OutputPath, config, null);
+
+            Assert.Equal("Life CUSTOM", first.OutputVersion);
+            Assert.Equal("Life CUSTOM 2", second.OutputVersion);
+            Assert.Equal("Life CUSTOM 3", third.OutputVersion);
+            Assert.Equal("Artist - Song [Life] CUSTOM.osu", Path.GetFileName(first.OutputPath));
+            Assert.Equal("Artist - Song [Life] CUSTOM 2.osu", Path.GetFileName(second.OutputPath));
+            Assert.Equal("Artist - Song [Life] CUSTOM 3.osu", Path.GetFileName(third.OutputPath));
+            Assert.True(!Path.GetFileName(second.OutputPath).Contains("CUSTOM CUSTOM", StringComparison.OrdinalIgnoreCase));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void ExistingFilenameCollisionIsNeverOverwritten()
     {
         string root = Path.Combine(Path.GetTempPath(), "HRandomPlusFilenameCollision", Guid.NewGuid().ToString("N"));
@@ -395,6 +424,26 @@ public class ApplicationTests
         Assert.Equal<long?>(null, settings.CustomConfig!.Seed);
         Assert.Equal(" CUSTOM", settings.CustomConfig.DifficultySuffix);
         Assert.Equal(" CUSTOM", custom.Config.DifficultySuffix);
+        Assert.True(custom.Config.DynamicThreshold);
+        Assert.True(!custom.Config.PreserveDualStages);
+        Assert.Equal(35, custom.Config.MinThresholdMs);
+        Assert.Equal(80, custom.Config.BaseThresholdMs);
+        Assert.Equal(80, custom.Config.MaxThresholdMs);
+        Assert.Equal(24, custom.Config.RecentUsageWindow);
+        Assert.Equal(16, custom.Config.PatternHistoryLength);
+        Assert.Equal(24, custom.Config.WeightedTopCandidates);
+        Assert.Equal(12d, custom.Config.WeightedTemperature);
+        Assert.Equal(4096, custom.Config.MaxCandidateSets);
+        Assert.True(custom.Config.RenameDifficulty);
+        Assert.Equal(18d, custom.Config.Weights.TimeSinceLastUseBonus);
+        Assert.Equal(6d, custom.Config.Weights.HandBalanceBonus);
+        Assert.Equal(6d, custom.Config.Weights.DistributionBonus);
+        Assert.Equal(10d, custom.Config.Weights.JackPenalty);
+        Assert.Equal(15d, custom.Config.Weights.TrillPenalty);
+        Assert.Equal(12d, custom.Config.Weights.RepeatedPatternPenalty);
+        Assert.Equal(8d, custom.Config.Weights.SameHandPenalty);
+        Assert.Equal(6d, custom.Config.Weights.ExtremeJumpPenalty);
+        Assert.Equal(14d, custom.Config.Weights.RecentUsagePenalty);
     }
 
     [Fact]
@@ -619,7 +668,6 @@ public class ApplicationTests
             OsuPath = "private-osu-path",
             TosuHost = "10.0.0.5",
             TosuPort = 12345,
-            OutputToBeatmapFolder = false,
             CustomProfiles = new List<RandomProfile>
             {
                 new() { Id = Guid.NewGuid(), Name = "Existing", Config = new HRandomConfig() }
@@ -634,7 +682,6 @@ public class ApplicationTests
         Assert.Equal("private-osu-path", settings.OsuPath);
         Assert.Equal("10.0.0.5", settings.TosuHost);
         Assert.Equal(12345, settings.TosuPort);
-        Assert.True(!settings.OutputToBeatmapFolder);
     }
 
     [Fact]

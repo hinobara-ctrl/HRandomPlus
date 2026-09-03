@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using HRandomPlus.Core;
 using HRandomPlus.Randomization;
 using HRandomPlus.Validation;
@@ -42,8 +43,11 @@ public sealed class BeatmapGenerationService
         new HRandomPlusEngine(config).Randomize(selected, output.Keys, seed, activeAtStart);
         output.ApplyObjects();
 
-        string suffix = FindUniqueSuffix(inputPath, output.Version, config.DifficultySuffix, outputDirectory);
-        if (config.RenameDifficulty) output.AppendVersionSuffix(suffix);
+        (string namingPath, string baseVersion) = config.RenameDifficulty
+            ? ResolveNamingBase(inputPath, output.Version, config.DifficultySuffix)
+            : (inputPath, output.Version);
+        string suffix = FindUniqueSuffix(namingPath, baseVersion, config.DifficultySuffix, outputDirectory);
+        if (config.RenameDifficulty) output.SetVersion(baseVersion + suffix);
         output.SetBeatmapId(0);
 
         byte[] generated = output.ToBytes();
@@ -51,7 +55,7 @@ public sealed class BeatmapGenerationService
         BeatmapValidator.ValidateTransformation(original, reparsed);
         EnsureOriginalUnchanged(inputPath, originalHash);
 
-        string outputPath = FindUniquePath(inputPath, suffix, outputDirectory);
+        string outputPath = FindUniquePath(namingPath, suffix, outputDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllBytes(outputPath, generated);
         return new GenerationResult(outputPath, output.Version, seed, selected.Count);
@@ -68,13 +72,45 @@ public sealed class BeatmapGenerationService
         string directory = outputDirectory is null
             ? Path.GetDirectoryName(Path.GetFullPath(originalPath))!
             : Path.GetFullPath(outputDirectory);
-        string safe = string.Concat(suffix.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim();
+        string safe = SafeSuffix(suffix);
         string baseName = Path.GetFileNameWithoutExtension(originalPath);
         string candidate = Path.Combine(directory, $"{baseName} {safe}.osu");
         for (int index = 2; File.Exists(candidate); index++)
             candidate = Path.Combine(directory, $"{baseName} {safe} {index}.osu");
         return candidate;
     }
+
+    private static (string Path, string Version) ResolveNamingBase(string inputPath, string version, string suffix)
+    {
+        int suffixIndex = version.LastIndexOf(suffix, StringComparison.OrdinalIgnoreCase);
+        if (suffixIndex <= 0) return (inputPath, version);
+
+        string numberedPart = version[(suffixIndex + suffix.Length)..];
+        if (!IsGeneratedNumber(numberedPart)) return (inputPath, version);
+
+        string baseVersion = version[..suffixIndex];
+        string filename = Path.GetFileNameWithoutExtension(inputPath);
+        string filenameTail = " " + SafeSuffix(suffix) + numberedPart;
+        if (!filename.EndsWith(filenameTail, StringComparison.OrdinalIgnoreCase) ||
+            filename.Length == filenameTail.Length)
+            return (inputPath, version);
+
+        string baseFilename = filename[..^filenameTail.Length];
+        string namingPath = Path.Combine(Path.GetDirectoryName(inputPath)!, baseFilename + Path.GetExtension(inputPath));
+        return (namingPath, baseVersion);
+    }
+
+    private static bool IsGeneratedNumber(string value)
+    {
+        if (value.Length == 0) return true;
+        if (value[0] != ' ' || !int.TryParse(value.AsSpan(1), NumberStyles.None,
+                CultureInfo.InvariantCulture, out int number) || number < 2)
+            return false;
+        return value == " " + number.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string SafeSuffix(string suffix)
+        => string.Concat(suffix.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim();
 
     private static string FindUniqueSuffix(string originalPath, string version, string suffix, string? outputDirectory)
     {

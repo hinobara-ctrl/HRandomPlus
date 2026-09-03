@@ -120,6 +120,14 @@ public sealed class OsuBeatmapDocument
         if (suffix.Length == 0 || Version.EndsWith(suffix, StringComparison.Ordinal))
             return;
 
+        SetVersion(Version + suffix);
+    }
+
+    public void SetVersion(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            throw new ArgumentException("La dificultad no puede estar vacía.", nameof(version));
+
         string section = string.Empty;
         for (int i = 0; i < lines.Count; i++)
         {
@@ -136,7 +144,7 @@ public sealed class OsuBeatmapDocument
                 continue;
             string valuePart = lines[i][(colon + 1)..];
             int spaces = valuePart.Length - valuePart.TrimStart().Length;
-            Version += suffix;
+            Version = version;
             lines[i] = lines[i][..(colon + 1)] + new string(' ', spaces) + Version;
             return;
         }

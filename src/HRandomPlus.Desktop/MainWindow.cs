@@ -35,10 +35,10 @@ public sealed class MainWindow : Window
     private readonly RadioButton selectedRange = new() { Content = "Selected range", GroupName = "range" };
     private readonly TextBox rangeBox = new() { Text = "00:37:005 - 01:13:005 -" };
     private readonly TextBox seedBox = new() { PlaceholderText = "Random" };
+    private readonly Button holdSeedButton = new() { Content = "Hold Seed", IsEnabled = false };
     private readonly CheckBox dynamicThreshold = new() { Content = "Dynamic threshold" };
     private readonly CheckBox preserveDualStages = new() { Content = "Preserve dual stages (10K+)", IsEnabled = false };
     private readonly CheckBox renameDifficulty = new() { Content = "Rename difficulty" };
-    private readonly CheckBox outputToBeatmapFolder = new() { Content = "Write beside the original beatmap" };
     private readonly TextBox bpmBox = new() { PlaceholderText = "Select a beatmap" };
     private readonly TextBlock detectedBpms = Text("BPM: —");
     private readonly Dictionary<int, TextBlock> snapValues = new();
@@ -51,13 +51,14 @@ public sealed class MainWindow : Window
     {
         Content = OperatingSystem.IsWindows() ? "Configure osu!stable" : "Configure native osu! path"
     };
-    private readonly Button saveProfileButton = new() { Content = "Save profile" };
-    private readonly Button deleteProfileButton = new() { Content = "Delete profile" };
-    private readonly Button resetCustomButton = new() { Content = "Reset Custom" };
+    private readonly Button saveProfileButton = new() { Content = "Save Profile" };
+    private readonly Button deleteProfileButton = new() { Content = "Delete Profile" };
+    private readonly Button resetCustomButton = new() { Content = "Reset" };
 
     private HRandomConfig activeConfig = new();
     private string? currentPath;
     private LazerBeatmapSelectionContext? currentLazerContext;
+    private long? lastUsedSeed;
     private bool randomizing;
 
     public MainWindow()
@@ -77,7 +78,6 @@ public sealed class MainWindow : Window
         wholeMap.IsChecked = settings.WholeMap;
         selectedRange.IsChecked = !settings.WholeMap;
         rangeBox.IsEnabled = !settings.WholeMap;
-        outputToBeatmapFolder.IsChecked = settings.OutputToBeatmapFolder;
         tosuHost.Text = settings.TosuHost;
         tosuPort.Text = settings.TosuPort.ToString(CultureInfo.InvariantCulture);
         Closed += (_, _) =>
@@ -122,13 +122,13 @@ public sealed class MainWindow : Window
         deleteProfileButton.Click += (_, _) => DeleteProfile();
         resetCustomButton.Click += async (_, _) => await ResetCustomAsync();
         profileButtons.Children.Add(saveProfileButton);
-        profileButtons.Children.Add(Button("Duplicate", DuplicateProfileAsync));
+        profileButtons.Children.Add(Button("Import Profile", ImportProfileAsync));
+        profileButtons.Children.Add(Button("Export Profile", ExportProfileAsync));
         profileButtons.Children.Add(deleteProfileButton);
-        profileButtons.Children.Add(resetCustomButton);
         left.Children.Add(profileButtons);
         left.Children.Add(Row(
-            Button("Import profile", ImportProfileAsync),
-            Button("Export profile", ExportProfileAsync)));
+            Button("Duplicate", DuplicateProfileAsync),
+            resetCustomButton));
 
         left.Children.Add(Section("RANGE"));
         wholeMap.IsCheckedChanged += (_, _) => UpdateRangeState();
@@ -138,19 +138,21 @@ public sealed class MainWindow : Window
 
         left.Children.Add(Section("SEED"));
         left.Children.Add(seedBox);
-        left.Children.Add(Button("Generate random seed", () => seedBox.Text = SeededRandom.CreateSeed().ToString(CultureInfo.InvariantCulture)));
+        holdSeedButton.Click += (_, _) => HoldLastUsedSeed();
+        left.Children.Add(Row(
+            Button("Generate Seed", () =>
+                seedBox.Text = SeededRandom.CreateSeed().ToString(CultureInfo.InvariantCulture)),
+            holdSeedButton,
+            Button("Delete Seed", () => seedBox.Text = string.Empty)));
 
-        left.Children.Add(Section("PLATFORM AND OUTPUT"));
-        Control tosuHostSetting = Labeled("tosu host", tosuHost);
-        Control tosuPortSetting = Labeled("tosu port", tosuPort);
-        tosuHostSetting.IsVisible = !OperatingSystem.IsWindows();
-        tosuPortSetting.IsVisible = !OperatingSystem.IsWindows();
-        platformSettingsPanel.IsEnabled = !OperatingSystem.IsWindows();
-        platformSettingsPanel.Children.Add(tosuHostSetting);
-        platformSettingsPanel.Children.Add(tosuPortSetting);
-        platformSettingsPanel.Children.Add(outputToBeatmapFolder);
-        platformSettingsPanel.Children.Add(Button("Apply settings", ApplyPlatformSettings));
-        left.Children.Add(platformSettingsPanel);
+        if (OperatingSystem.IsLinux())
+        {
+            left.Children.Add(Section("LINUX STABLE / TOSU"));
+            platformSettingsPanel.Children.Add(Labeled("tosu host", tosuHost));
+            platformSettingsPanel.Children.Add(Labeled("tosu port", tosuPort));
+            platformSettingsPanel.Children.Add(Button("Apply settings", ApplyPlatformSettings));
+            left.Children.Add(platformSettingsPanel);
+        }
         randomizeButton.Click += async (_, _) => await RandomizeAsync();
         left.Children.Add(randomizeButton);
         left.Children.Add(Section("STATUS"));
@@ -358,33 +360,40 @@ public sealed class MainWindow : Window
         try
         {
             HRandomConfig config = ReadConfig();
-            config.Seed = string.IsNullOrWhiteSpace(seedBox.Text)
-                ? null
-                : long.Parse(seedBox.Text, CultureInfo.InvariantCulture);
+            bool automaticSeed = config.Seed is null;
             BeatmapRange? range = selectedRange.IsChecked == true ? BeatmapRange.Parse(rangeBox.Text ?? "") : null;
             string profile = profileBox.SelectedItem?.ToString() ?? "Custom";
             string rangeDescription = range is null ? "Whole map" : $"Selected range {range.Value.StartMs}-{range.Value.EndMs} ms";
             randomizing = true;
             randomizeButton.IsEnabled = false;
             SetStatus("Randomizing...");
-            bool outputBeside = outputToBeatmapFolder.IsChecked == true;
             LazerBeatmapSelectionContext? lazerContext = currentLazerContext;
             bool useLazer = lazerContext is not null;
-            bool useWineSide = !useLazer && BeatmapImportPolicy.ShouldUseWineSide(OperatingSystem.IsLinux(), outputBeside);
-            string? outputDirectory = useLazer || useWineSide || !outputBeside ? AppPaths.OutputDirectory : null;
-            IBeatmapImporter importer = useLazer
+            bool useWineSide = !useLazer && BeatmapImportPolicy.ShouldUseWineSide(OperatingSystem.IsLinux());
+            IBeatmapImporter platformImporter = useLazer
                 ? new LazerArchiveImporter()
-                : useWineSide ? new WineSideFileImporter(processRunner) : new DirectFileImporter();
-            string importStrategy = useLazer ? "lazer-osz" : useWineSide ? "wine-side-copy" : "direct-file";
+                : useWineSide ? new WineSideFileImporter(processRunner) : new NativeSideFileImporter();
+            IBeatmapImporter importer = new PortableFallbackArchiveImporter(platformImporter);
+            string importStrategy = useLazer ? "lazer-osz" : useWineSide ? "wine-side-copy" : "native-side-copy";
             store.Log($"Randomize started; platform={Environment.OSVersion.Platform}; beatmap={snapshot}; profile={profile}; range={rangeDescription}; seed={(config.Seed?.ToString(CultureInfo.InvariantCulture) ?? "random")}; importStrategy={importStrategy}");
-            GenerationResult result = await Task.Run(() => generator.Generate(snapshot, config, range, outputDirectory));
+            GenerationResult result = await Task.Run(() => generator.Generate(snapshot, config, range, AppPaths.OutputDirectory));
             BeatmapImportResult import = await importer.ImportAsync(
-                new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.OutputDirectory, lazerContext),
+                new BeatmapImportRequest(snapshot, result.OutputPath, AppPaths.PortableFallbackDirectory, lazerContext),
                 pollingCancellation.Token);
             if (useLazer && import.Success && source is ILazerResolutionInvalidator invalidator)
                 invalidator.InvalidateLazerResolution();
-            seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
-            string importMessage = useWineSide || useLazer ? $"\n{import.Message}" : string.Empty;
+            lastUsedSeed = result.Seed;
+            holdSeedButton.IsEnabled = true;
+            if (automaticSeed)
+            {
+                seedBox.Text = string.Empty;
+                seedBox.PlaceholderText = $"Random — last used: {result.Seed}";
+            }
+            else
+            {
+                seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
+            }
+            string importMessage = $"\n{import.Message}";
             SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {import.PreservedOutputPath}{importMessage}");
             store.Log($"Randomize completed; output={import.PreservedOutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; automaticAttempted={import.AutomaticImportAttempted}; fallback={import.FallbackUsed}; importSuccess={import.Success}; message={import.Message}");
             if (!string.IsNullOrWhiteSpace(import.Diagnostics)) store.Log($"Import diagnostics: {import.Diagnostics}");
@@ -395,6 +404,12 @@ public sealed class MainWindow : Window
             randomizing = false;
             randomizeButton.IsEnabled = currentPath is not null;
         }
+    }
+
+    private void HoldLastUsedSeed()
+    {
+        if (lastUsedSeed is long seed)
+            seedBox.Text = seed.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ReloadProfiles(string? selected)
@@ -483,7 +498,7 @@ public sealed class MainWindow : Window
     {
         RandomProfile? selected = SelectedProfile();
         if (selected is null || !selected.BuiltIn || !selected.Name.Equals(ProfileCatalog.CustomName, StringComparison.OrdinalIgnoreCase)) return;
-        if (!await ConfirmAsync("Reset Custom", "Restore the default Custom parameters? This cannot be undone.", "Reset")) return;
+        if (!await ConfirmAsync("Reset", "Restore the default Custom parameters? This cannot be undone.", "Reset")) return;
         ProfileOperations.ResetCustom(selected, settings);
         activeConfig = selected.Config.Clone();
         LoadConfig(activeConfig);
@@ -622,7 +637,7 @@ public sealed class MainWindow : Window
     private void UpdateProfileActions(RandomProfile profile)
     {
         bool custom = profile.BuiltIn && profile.Name.Equals(ProfileCatalog.CustomName, StringComparison.OrdinalIgnoreCase);
-        saveProfileButton.Content = custom ? "Save Custom" : "Save profile";
+        saveProfileButton.Content = "Save Profile";
         saveProfileButton.IsEnabled = custom || !profile.BuiltIn;
         deleteProfileButton.IsEnabled = !profile.BuiltIn;
         resetCustomButton.IsEnabled = custom;
@@ -649,7 +664,6 @@ public sealed class MainWindow : Window
                 settings.TosuPort = int.Parse(tosuPort.Text ?? "24050", CultureInfo.InvariantCulture);
                 if (settings.TosuPort is < 1 or > 65535) throw new ArgumentOutOfRangeException(nameof(settings.TosuPort));
             }
-            settings.OutputToBeatmapFolder = outputToBeatmapFolder.IsChecked == true;
             ReplaceSource(PlatformSourceFactory.Create(settings));
             SaveSettings();
             SetStatus("Settings applied");
@@ -667,6 +681,9 @@ public sealed class MainWindow : Window
     private void LoadConfig(HRandomConfig config)
     {
         seedBox.Text = config.Seed?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        seedBox.PlaceholderText = lastUsedSeed is long seed
+            ? $"Random — last used: {seed}"
+            : "Random";
         dynamicThreshold.IsChecked = config.DynamicThreshold;
         preserveDualStages.IsChecked = config.PreserveDualStages;
         renameDifficulty.IsChecked = config.RenameDifficulty;

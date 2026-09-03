@@ -1,3 +1,4 @@
+<!-- document-status: current -->
 # Prueba A/B de importación Linux
 
 Estado: **VERIFICADO EN VM LINUX REAL + osu-winello + Wine**.
@@ -43,9 +44,8 @@ Espera unos segundos sin pulsar F5 y anota si aparece la dificultad.
 
 ## Interpretación y comportamiento implementado
 
-- La aplicación selecciona la copia mediante Wine solamente en Linux, cuando **Write beside the original beatmap** está activo.
-- El output central deliberado no se copia silenciosamente a `Songs`.
+- La aplicación selecciona siempre la copia mediante Wine para osu!stable en Linux; la opción **Write beside the original beatmap** ya no forma parte de la interfaz.
 - Cada ruta se convierte mediante `winepath`; nunca se construye `Z:` manualmente.
 - Si la copia mediante Wine falla, la copia nativa conserva el resultado y la UI recomienda F5.
-- Si también falla la copia nativa, el `.osu` queda preservado en la carpeta central para importación manual.
+- Si también falla la copia nativa, se intenta preservar un `.osz` portable en `Failed Imports`, junto al ejecutable de HRandomPlus.
 - Los fallos y rutas complejas están **PROBADOS CON MOCKS**; la prueba manual de esta integración completa debe repetirse con cada candidato de release.

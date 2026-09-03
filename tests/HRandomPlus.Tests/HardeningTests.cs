@@ -173,13 +173,34 @@ public sealed class HardeningTests
     }
 
     [Fact]
-    public void StableSelectorAllowsOneStableWhenLazerIsNotAnEligibleX86ReaderTarget()
+    public void StableSelectorAllowsOneEligibleX86ReaderTarget()
     {
         StableProcessIdentity stable = Candidate(10, "stable-a");
         StableProcessSelection result = StableProcessSelector.Select(new[] { stable }, null, null,
             readerCanBindToIdentity: false, readerTargetProcessCount: 1);
         Assert.Equal(StableProcessSelectionStatus.Selected, result.Status);
         Assert.Equal(stable, result.Identity);
+    }
+
+    [Fact]
+    public void StableSelectorRecoversAfterASecondReaderTargetCloses()
+    {
+        StableProcessIdentity stable = Candidate(10, "stable-a");
+        StableProcessIdentity second = Candidate(20, "stable-b");
+
+        StableProcessSelection initial = StableProcessSelector.Select(new[] { stable }, null, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 1);
+        StableProcessSelection ambiguous = StableProcessSelector.Select(new[] { stable, second }, null,
+            initial.Identity?.ProcessId, initial.Identity?.StartTime,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 2);
+        StableProcessSelection recovered = StableProcessSelector.Select(new[] { stable }, null, null,
+            readerCanBindToIdentity: false, readerTargetProcessCount: 1);
+
+        Assert.Equal(StableProcessSelectionStatus.Selected, initial.Status);
+        Assert.Equal(StableProcessSelectionStatus.Ambiguous, ambiguous.Status);
+        Assert.True(ambiguous.Identity is null);
+        Assert.Equal(StableProcessSelectionStatus.Selected, recovered.Status);
+        Assert.Equal(stable, recovered.Identity);
     }
 
     [Fact]
@@ -300,14 +321,14 @@ public sealed class HardeningTests
     }
 
     [Theory]
-    [InlineData("C:\\Users\\Benja", "C:\\Users\\Benja", "%USERPROFILE%")]
-    [InlineData("C:\\Users\\Benja\\AppData\\Local", "C:\\Users\\Benja", "%USERPROFILE%\\AppData\\Local")]
-    [InlineData("c:\\users\\BENJA\\Songs", "C:\\Users\\Benja", "%USERPROFILE%\\Songs")]
-    [InlineData("D:\\Games\\osu", "C:\\Users\\Benja", "D:\\Games\\osu")]
-    [InlineData("/home/benja", "/home/benja", "$HOME")]
-    [InlineData("/home/benja/.local/share", "/home/benja", "$HOME/.local/share")]
-    [InlineData("/home/Benja/data", "/home/benja", "/home/Benja/data")]
-    [InlineData("/opt/osu", "/home/benja", "/opt/osu")]
+    [InlineData("C:\\Users\\Alice", "C:\\Users\\Alice", "%USERPROFILE%")]
+    [InlineData("C:\\Users\\Alice\\AppData\\Local", "C:\\Users\\Alice", "%USERPROFILE%\\AppData\\Local")]
+    [InlineData("c:\\users\\ALICE\\Songs", "C:\\Users\\Alice", "%USERPROFILE%\\Songs")]
+    [InlineData("D:\\Games\\osu", "C:\\Users\\Alice", "D:\\Games\\osu")]
+    [InlineData("/home/alice", "/home/alice", "$HOME")]
+    [InlineData("/home/alice/.local/share", "/home/alice", "$HOME/.local/share")]
+    [InlineData("/home/Alice/data", "/home/alice", "/home/Alice/data")]
+    [InlineData("/opt/osu", "/home/alice", "/opt/osu")]
     public void DiagnosticPathsRedactOnlyTheHomePrefix(string value, string home, string expected)
         => Assert.Equal(expected, DiagnosticPathRedactor.Redact(value, home));
 
@@ -320,18 +341,18 @@ public sealed class HardeningTests
     }
 
     [Theory]
-    [InlineData("Missing config: C:\\Users\\Benja\\.local", "C:\\Users\\Benja", "Missing config: %USERPROFILE%\\.local")]
-    [InlineData("Missing config: /home/benja/.local", "/home/benja", "Missing config: $HOME/.local")]
-    [InlineData("Prefix/home/benja/.local", "/home/benja", "Prefix/home/benja/.local")]
-    [InlineData("C:\\Users\\Benjamín\\data", "C:\\Users\\Benja", "C:\\Users\\Benjamín\\data")]
+    [InlineData("Missing config: C:\\Users\\Alice\\.local", "C:\\Users\\Alice", "Missing config: %USERPROFILE%\\.local")]
+    [InlineData("Missing config: /home/alice/.local", "/home/alice", "Missing config: $HOME/.local")]
+    [InlineData("Prefix/home/alice/.local", "/home/alice", "Prefix/home/alice/.local")]
+    [InlineData("C:\\Users\\Alicia\\data", "C:\\Users\\Alice", "C:\\Users\\Alicia\\data")]
     public void DiagnosticPathsRedactEmbeddedHomeOnlyAtAPathBoundary(string value, string home, string expected)
         => Assert.Equal(expected, DiagnosticPathRedactor.Redact(value, home));
 
     [Theory]
-    [InlineData("C:\\Users\\Benja, C:\\Users\\Benja\\Songs)", "C:\\Users\\Benja", "%USERPROFILE%, %USERPROFILE%\\Songs)")]
-    [InlineData("/home/benja, then /home/benja/Songs)", "/home/benja", "$HOME, then $HOME/Songs)")]
-    [InlineData("C:\\Users\\Benjamín and C:\\Users\\Benja_extra", "C:\\Users\\Benja", "C:\\Users\\Benjamín and C:\\Users\\Benja_extra")]
-    [InlineData("/home/benjamin and /home/benja-extra", "/home/benja", "/home/benjamin and /home/benja-extra")]
+    [InlineData("C:\\Users\\Alice, C:\\Users\\Alice\\Songs)", "C:\\Users\\Alice", "%USERPROFILE%, %USERPROFILE%\\Songs)")]
+    [InlineData("/home/alice, then /home/alice/Songs)", "/home/alice", "$HOME, then $HOME/Songs)")]
+    [InlineData("C:\\Users\\Alicia and C:\\Users\\Alice_extra", "C:\\Users\\Alice", "C:\\Users\\Alicia and C:\\Users\\Alice_extra")]
+    [InlineData("/home/alicia and /home/alice-extra", "/home/alice", "/home/alicia and /home/alice-extra")]
     public void DiagnosticPathsRedactEveryOccurrenceWithPunctuationAndRejectFalsePrefixes(
         string value, string home, string expected)
         => Assert.Equal(expected, DiagnosticPathRedactor.Redact(value, home));

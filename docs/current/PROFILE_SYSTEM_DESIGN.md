@@ -1,14 +1,17 @@
+<!-- document-status: current -->
 # HRandomPlus: diseño del sistema de perfiles
 
 ## Estado del documento
 
 Este documento registra el comportamiento anterior, las decisiones de diseño y el contrato implementado para perfiles persistentes e intercambiables.
 
-**IMPLEMENTADO LOCALMENTE:** Custom persistente, GUID, migración idempotente, nombres reservados, Duplicate, Delete protegido, Reset Custom con confirmación, escritura atómica e importación/exportación `.hrp-profile.json` con preview y resolución de conflictos. La implementación está cubierta por pruebas automatizadas y queda pendiente de playtest de UI y commit del propietario.
+**IMPLEMENTADO Y VALIDADO:** Custom persistente, GUID, migración idempotente, nombres reservados, Duplicate, Delete protegido, Reset con confirmación, escritura atómica e importación/exportación `.hrp-profile.json` con preview y resolución de conflictos. La implementación está cubierta por pruebas automatizadas y por los playtests de UI documentados en el checklist vigente.
 
 El motor del randomizer y los valores de H-Random/S-Random no fueron modificados. El documento se conserva porque registra el formato portable, las reglas de migración y las decisiones de compatibilidad que no conviene duplicar por completo en README.
 
-## Contexto actual
+## Contexto anterior a la implementación
+
+Esta sección conserva el problema original que motivó el diseño; no describe el comportamiento vigente.
 
 HRandomPlus muestra tres perfiles integrados:
 
@@ -18,9 +21,9 @@ HRandomPlus muestra tres perfiles integrados:
 
 `H-Random` y `S-Random` son presets integrados y se reconstruyen desde el código cada vez que se inicia la aplicación. Por ello, sus valores originales permanecen constantes aunque el usuario cambie parámetros en la interfaz.
 
-`Custom` también es actualmente un preset integrado e inmutable. Sus parámetros iniciales son equivalentes a la configuración base de H-Random, con la principal diferencia visible de que utiliza el sufijo de dificultad ` CUSTOM` en lugar de ` H-RANDOM+`. No contiene un algoritmo separado.
+`Custom` también era un preset integrado e inmutable. Sus parámetros iniciales eran equivalentes a la configuración base de H-Random, con la principal diferencia visible de que utilizaba el sufijo de dificultad ` CUSTOM` en lugar de ` H-RANDOM+`. No contenía un algoritmo separado.
 
-Cuando el usuario modifica `Custom` y pulsa `Save profile`, la aplicación no actualiza el Custom integrado. Solicita un nombre y crea un perfil personal adicional. Actualmente también permite usar nombres como `Custom`, `H-Random` o `S-Random`, lo que puede producir entradas visualmente duplicadas y confusas.
+Cuando el usuario modificaba `Custom` y pulsaba `Save profile`, la aplicación no actualizaba el Custom integrado: solicitaba un nombre y creaba un perfil personal adicional. También permitía usar nombres como `Custom`, `H-Random` o `S-Random`, lo que podía producir entradas visualmente duplicadas y confusas.
 
 Los perfiles personales se guardan en la configuración local de cada usuario:
 
@@ -41,7 +44,7 @@ Custom debe convertirse en un perfil único, modificable y persistente:
 - `S-Random` continúa siendo un preset protegido e inmutable.
 - `Custom` carga los últimos parámetros guardados por el usuario.
 - Guardar Custom actualiza ese único perfil y no crea otra entrada llamada Custom.
-- Custom no puede eliminarse, pero puede ofrecer una acción `Reset Custom` para recuperar sus valores iniciales.
+- Custom no puede eliminarse, pero ofrece una acción `Reset` para recuperar sus valores iniciales.
 - `Custom`, `H-Random` y `S-Random` pasan a ser nombres reservados para perfiles personales.
 
 ### Persistencia implementada
@@ -60,11 +63,11 @@ Al iniciar la aplicación:
 
 ### Comportamiento de los botones
 
-- Al seleccionar Custom, `Save profile` debe guardar directamente sus parámetros sin pedir otro nombre. Conviene cambiar temporalmente su texto a `Save Custom`.
+- Al seleccionar Custom, `Save Profile` guarda directamente sus parámetros sin pedir otro nombre.
 - `Duplicate` debe crear un perfil personal independiente, pedir un nombre y asignarle una identidad nueva.
-- En H-Random y S-Random, `Save profile` no debe sobrescribir el preset. El usuario puede usar `Duplicate` para guardar una variante.
+- En H-Random y S-Random, `Save Profile` no sobrescribe el preset. El usuario puede usar `Duplicate` para guardar una variante.
 - `Delete custom` solo debe habilitarse para perfiles personales con nombre, no para el Custom persistente.
-- Una futura acción `Reset Custom` debe solicitar confirmación y restaurar solamente Custom.
+- `Reset` solicita confirmación y restaura solamente Custom.
 
 `Apply settings` no debe usarse para guardar perfiles. Actualmente esa acción corresponde a opciones de plataforma, conexión y output, no a los parámetros del randomizer.
 
@@ -144,14 +147,12 @@ Reglas:
 
 ## Interfaz de importación y exportación
 
-Acciones recomendadas:
+Acciones implementadas:
 
-- `Save Custom` o `Save profile`, según la selección.
-- `Duplicate`.
-- `Import profile`.
-- `Export profile`.
-- `Delete profile`.
-- Opcionalmente, `Reset Custom`.
+- Primera fila: `Save Profile`, `Import Profile`, `Export Profile`, `Delete Profile`.
+- Segunda fila: `Duplicate`, `Reset`.
+- `Save Profile` permanece deshabilitado para H-Random/S-Random, guarda Custom directamente y actualiza los perfiles personales.
+- `Reset` permanece habilitado únicamente para Custom.
 
 ### Exportación
 
@@ -232,7 +233,7 @@ No es necesario mantener una copia del `.hrp-profile.json` dentro de la aplicaci
 
 - Custom conserva todos sus campos después de cerrar y abrir la aplicación.
 - Guardar Custom repetidamente no crea perfiles duplicados.
-- Reset Custom restaura únicamente sus valores predeterminados.
+- Reset restaura únicamente los valores predeterminados de Custom.
 - Editar parámetros mientras se usa H-Random o S-Random no modifica los presets.
 - Los nombres reservados se comparan sin distinguir mayúsculas y espacios exteriores.
 
@@ -277,7 +278,7 @@ No es necesario mantener una copia del `.hrp-profile.json` dentro de la aplicaci
 5. Formato `.hrp-profile.json` en Core: completado.
 6. Validación, límite de 256 KB y escritura atómica: completado.
 7. Importación/exportación con preview y conflictos: completado.
-8. Pruebas automatizadas: completado; smoke start Windows aprobado y playtests interactivos Windows/Linux pendientes en el checklist.
+8. Pruebas automatizadas y playtests interactivos Windows/Linux: completados según el checklist vigente.
 9. Documentación: completada localmente.
 10. Artefactos: regenerados y auditados al final de esta intervención.
 

@@ -105,7 +105,8 @@ public sealed class HRandomPlusEngine
             .Select(stage => Enumerable.Range(0, keys)
                 .Where(column => DualStageLayout.StageOf(column, keys) == stage).ToArray())
             .ToArray();
-        var candidates = new Dictionary<string, int[]>(StringComparer.Ordinal);
+        var candidates = new List<int[]>();
+        var seenCandidates = new HashSet<ulong>();
 
         for (int centerDestinations = 0; centerDestinations <= 1; centerDestinations++)
         for (int leftDestinations = 0; leftDestinations <= regions[0].Length; leftDestinations++)
@@ -123,13 +124,12 @@ public sealed class HRandomPlusEngine
                 CandidateSetsForRegion(regions[2], rightDestinations, state, time, threshold, rng)
             }, rng);
             foreach (int[] candidate in combined)
-                candidates.TryAdd(string.Join(',', candidate), candidate);
+                CandidateSetIdentity.TryAdd(seenCandidates, candidates, candidate);
         }
 
-        var result = candidates.Values.ToList();
-        if (result.Count <= config.MaxCandidateSets) return result;
-        rng.Shuffle(result);
-        return result.Take(config.MaxCandidateSets).ToList();
+        if (candidates.Count <= config.MaxCandidateSets) return candidates;
+        rng.Shuffle(candidates);
+        return candidates.Take(config.MaxCandidateSets).ToList();
     }
 
     private static bool SharedCenterAssignmentExists(IReadOnlyList<int> originCounts,
@@ -239,24 +239,24 @@ public sealed class HRandomPlusEngine
             }
         }
 
-        var sampled = new Dictionary<string, int[]>(StringComparer.Ordinal);
+        var sampled = new List<int[]>(config.MaxCandidateSets);
+        var seenCandidates = new HashSet<ulong>();
         long attempts = 0;
         long attemptLimit = Math.Min((long)config.MaxCandidateSets * 20L, int.MaxValue);
         while (sampled.Count < config.MaxCandidateSets && attempts++ < attemptLimit)
         {
             int[] candidate = stages.SelectMany(stage => stage[rng.NextInt(stage.Count)])
                                     .OrderBy(column => column).ToArray();
-            sampled.TryAdd(string.Join(',', candidate), candidate);
+            CandidateSetIdentity.TryAdd(seenCandidates, sampled, candidate);
         }
-        return sampled.Values.ToList();
+        return sampled;
     }
 
     private int[] WeightedChoice(List<int[]> candidates, RandomState state, int time, int threshold, SeededRandom rng)
     {
-        var ranked = candidates.Select(c => (Columns: c, Score: scorer.ScoreSet(state, c, time, threshold)))
-                               .OrderByDescending(c => c.Score)
-                               .Take(config.WeightedTopCandidates)
-                               .ToArray();
+        CandidateScoringContext scoringContext = scorer.CreateContext(state, time, threshold);
+        var ranked = StableTopK.Select(candidates, config.WeightedTopCandidates,
+            candidate => scorer.ScoreSortedSet(scoringContext, candidate));
         double max = ranked[0].Score;
         double[] weights = ranked.Select(c => Math.Exp((c.Score - max) / config.WeightedTemperature)).ToArray();
         double target = rng.NextDouble() * weights.Sum();
@@ -264,9 +264,9 @@ public sealed class HRandomPlusEngine
         {
             target -= weights[i];
             if (target <= 0)
-                return ranked[i].Columns;
+                return ranked[i].Item;
         }
-        return ranked[^1].Columns;
+        return ranked[^1].Item;
     }
 
     private List<int[]> GenerateCombinations(int[] columns, int count, SeededRandom rng)
@@ -299,17 +299,38 @@ public sealed class HRandomPlusEngine
             }
         }
 
-        var sampled = new Dictionary<string, int[]>(StringComparer.Ordinal);
+        var sampled = new List<int[]>(config.MaxCandidateSets);
+        var seenCandidates = new HashSet<ulong>();
+        var shuffled = new int[columns.Length];
         long attempts = 0;
         long attemptLimit = Math.Min((long)config.MaxCandidateSets * 20L, int.MaxValue);
         while (sampled.Count < config.MaxCandidateSets && attempts++ < attemptLimit)
         {
-            var shuffled = columns.ToList();
+            Array.Copy(columns, shuffled, columns.Length);
             rng.Shuffle(shuffled);
-            int[] candidate = shuffled.Take(count).OrderBy(c => c).ToArray();
-            sampled.TryAdd(string.Join(',', candidate), candidate);
+            var candidate = new int[count];
+            Array.Copy(shuffled, candidate, count);
+            Array.Sort(candidate);
+            CandidateSetIdentity.TryAdd(seenCandidates, sampled, candidate);
         }
-        return sampled.Values.ToList();
+        return sampled;
     }
 
+}
+
+internal static class CandidateSetIdentity
+{
+    public static bool TryAdd(HashSet<ulong> seen, List<int[]> ordered, int[] candidate)
+    {
+        ulong key = 0;
+        foreach (int column in candidate)
+        {
+            if ((uint)column >= 64)
+                throw new ArgumentOutOfRangeException(nameof(candidate), "La identidad binaria admite columnas entre 0 y 63.");
+            key |= 1UL << column;
+        }
+        if (!seen.Add(key)) return false;
+        ordered.Add(candidate);
+        return true;
+    }
 }

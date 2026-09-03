@@ -40,7 +40,34 @@ public static class ProfileCatalog
         new RandomProfile { Id = customId == Guid.Empty ? DefaultCustomId : customId, Name = CustomName, BuiltIn = true, Config = (customConfig ?? DefaultCustom()).Clone() }
     };
 
-    public static HRandomConfig DefaultCustom() => new() { DifficultySuffix = " CUSTOM" };
+    public static HRandomConfig DefaultCustom() => new()
+    {
+        Seed = null,
+        DynamicThreshold = true,
+        PreserveDualStages = false,
+        MinThresholdMs = 35,
+        BaseThresholdMs = 80,
+        MaxThresholdMs = 80,
+        RecentUsageWindow = 24,
+        PatternHistoryLength = 16,
+        WeightedTopCandidates = 24,
+        WeightedTemperature = 12,
+        MaxCandidateSets = 4096,
+        RenameDifficulty = true,
+        DifficultySuffix = " CUSTOM",
+        Weights = new ScoringWeights
+        {
+            TimeSinceLastUseBonus = 18,
+            HandBalanceBonus = 6,
+            DistributionBonus = 6,
+            JackPenalty = 10,
+            TrillPenalty = 15,
+            RepeatedPatternPenalty = 12,
+            SameHandPenalty = 8,
+            ExtremeJumpPenalty = 6,
+            RecentUsagePenalty = 14
+        }
+    };
 
     public static bool IsReservedName(string? name)
     {
@@ -76,7 +103,6 @@ public sealed class AppSettings
     public int TosuPort { get; set; } = 24050;
     public string? LinuxOsuPath { get; set; }
     public string? LastManualDirectory { get; set; }
-    public bool OutputToBeatmapFolder { get; set; } = true;
     public string LastProfile { get; set; } = "H-Random";
     public bool WholeMap { get; set; } = true;
     public Guid CustomProfileId { get; set; }

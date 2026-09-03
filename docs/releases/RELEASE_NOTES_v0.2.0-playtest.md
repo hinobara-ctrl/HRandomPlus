@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: notas congeladas de v0.2.0-playtest; no son autoritativas para el HEAD actual.
+
 # HRandomPlus v0.2.0-playtest (candidato de desarrollo)
 
 Esta versión añade soporte nativo de primer nivel para osu!lazer en Windows x64 y Linux x64, conservando todas las rutas existentes de osu!stable y el motor de randomización de v0.1.1.
@@ -23,4 +26,4 @@ Esta versión añade soporte nativo de primer nivel para osu!lazer en Windows x6
 
 La implementación y la suite automatizada están completas localmente. Los playtests funcionales en Windows real y Linux nativo fueron aprobados sin fallos reportados; el escenario artificial de fallo del lanzador no es una condición de release porque no representa el flujo normal de importación de lazer.
 
-El diseño técnico, la revisión upstream exacta y el comportamiento ante fallos están documentados en `docs/LAZER_IMPLEMENTATION.md`.
+El diseño técnico, la revisión upstream exacta y el comportamiento ante fallos están documentados en `docs/current/LAZER_IMPLEMENTATION.md`.

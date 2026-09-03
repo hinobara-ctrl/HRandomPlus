@@ -16,6 +16,8 @@ public static class AppPaths
 
     public static string OutputDirectory => Path.Combine(DataDirectory, "Generated Beatmaps");
 
+    public static string PortableFallbackDirectory => Path.Combine(AppContext.BaseDirectory, "Failed Imports");
+
     private static string GetXdgDirectory(string variable, string fallback)
     {
         string? configured = Environment.GetEnvironmentVariable(variable);

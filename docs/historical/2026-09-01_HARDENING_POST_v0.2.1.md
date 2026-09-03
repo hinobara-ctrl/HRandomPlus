@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: evidencia histórica de v0.2.1; no es autoritativo para el HEAD actual.
+
 # Hardening posterior a v0.2.1
 
 La primera pasada no cambió scoring ni jugabilidad. Una decisión de producto posterior aprobó explícitamente los cambios de stages, trills, pausas y presentación BPM documentados al final de este archivo. La neutralidad del centro para Hand Balance, Extreme Jump y la lista de snaps permanecen sin cambios.

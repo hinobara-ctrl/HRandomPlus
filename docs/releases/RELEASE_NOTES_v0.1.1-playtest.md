@@ -1,3 +1,6 @@
+<!-- document-status: historical -->
+> Tipo de documento: notas congeladas de v0.1.1-playtest; no son autoritativas para el HEAD actual.
+
 # HRandomPlus v0.1.1-playtest
 
 Esta es una actualización conservadora de empaquetado para osu!stable. No cambia la randomización, detección de beatmaps, integración con tosu, importación mediante Wine, perfiles, configuración predeterminada ni comportamiento de la UI.
@@ -10,7 +13,7 @@ Esta es una actualización conservadora de empaquetado para osu!stable. No cambi
 - Los símbolos de depuración, pruebas, archivos de compilación, cachés y archivos temporales se excluyen de los ZIP binarios.
 - Se evaluaron la compresión de payload de archivo único, trimming, globalización invariante y eliminación de backends de Avalonia, pero no se adoptaron porque el beneficio medido no justificaba su costo de ejecución o compatibilidad.
 
-Las mediciones y decisiones completas están registradas en `docs/optimization-v0.1.1.md`.
+Las mediciones y decisiones completas están registradas en `docs/historical/2026-08-31_OPTIMIZATION_v0.1.1.md`.
 
 ## Licencias y fuentes
 

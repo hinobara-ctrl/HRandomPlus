@@ -1,6 +1,9 @@
+<!-- document-status: historical -->
+> Tipo de documento: snapshot histórico pre-lazer; no es autoritativo para el HEAD actual.
+
 # Punto de congelación pre-lazer
 
-> Base histórica de v0.1.1. El desarrollo nativo de lazer ahora está en [`LAZER_IMPLEMENTATION.md`](LAZER_IMPLEMENTATION.md); este archivo conserva intencionalmente el registro pre-lazer.
+> Base histórica de v0.1.1. El desarrollo nativo de lazer ahora está en [`LAZER_IMPLEMENTATION.md`](../current/LAZER_IMPLEMENTATION.md); este archivo conserva intencionalmente el registro pre-lazer.
 
 Fecha: 2026-08-29
 

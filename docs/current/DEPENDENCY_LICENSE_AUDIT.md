@@ -1,3 +1,4 @@
+<!-- document-status: current -->
 # Auditoría de licencias de dependencias y distribución
 
 > La inspección de publicaciones self-contained descrita aquí es evidencia histórica. La política vigente distribuye solamente Windows x64 y Linux x64 framework-dependent; .NET ya no se redistribuye dentro de los ZIP normales.

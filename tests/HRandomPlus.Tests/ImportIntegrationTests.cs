@@ -204,12 +204,140 @@ public class ImportIntegrationTests
     }
 
     [Fact]
-    public void ImportPolicyUsesWineOnlyForLinuxBesideBeatmap()
+    public void ImportPolicyUsesWineOnlyOnLinux()
     {
-        Assert.True(BeatmapImportPolicy.ShouldUseWineSide(true, true));
-        Assert.True(!BeatmapImportPolicy.ShouldUseWineSide(true, false));
-        Assert.True(!BeatmapImportPolicy.ShouldUseWineSide(false, true));
-        Assert.True(!BeatmapImportPolicy.ShouldUseWineSide(false, false));
+        Assert.True(BeatmapImportPolicy.ShouldUseWineSide(true));
+        Assert.True(!BeatmapImportPolicy.ShouldUseWineSide(false));
+    }
+
+    [Fact]
+    public void NativeSideImporterCopiesBesideOriginalAndRemovesStaging()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            BeatmapImportResult result = new NativeSideFileImporter().ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(result.Success, result.Message);
+            Assert.Equal(Path.GetDirectoryName(original), Path.GetDirectoryName(result.PreservedOutputPath));
+            Assert.True(File.Exists(result.PreservedOutputPath));
+            Assert.True(!File.Exists(generated));
+        });
+    }
+
+    [Fact]
+    public void NativeSideImporterNeverOverwritesAnExistingDifficulty()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            string existing = Path.Combine(Path.GetDirectoryName(original)!, Path.GetFileName(generated));
+            File.WriteAllText(existing, "existing difficulty");
+
+            BeatmapImportResult result = new NativeSideFileImporter().ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(result.Success, result.Message);
+            Assert.Equal("existing difficulty", File.ReadAllText(existing));
+            Assert.True(!Path.GetFullPath(existing).Equals(Path.GetFullPath(result.PreservedOutputPath),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal));
+            Assert.True(File.Exists(result.PreservedOutputPath));
+        });
+    }
+
+    [Fact]
+    public void FailedImportPreservesAPortableArchiveInTheRequestedDirectory()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            var importer = new PortableFallbackArchiveImporter(new FailedImporter());
+            BeatmapImportResult result = importer.ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(!result.Success);
+            Assert.True(result.ImportArchivePath is not null && File.Exists(result.ImportArchivePath));
+            string archivePath = result.ImportArchivePath
+                ?? throw new InvalidOperationException("The fallback archive path was not returned.");
+            Assert.True(result.FallbackUsed);
+            Assert.Equal(archivePath, result.PreservedOutputPath);
+            Assert.Equal(Path.GetFullPath(fallback), Path.GetDirectoryName(archivePath));
+            using ZipArchive archive = ZipFile.OpenRead(archivePath);
+            Assert.True(archive.Entries.Any(entry => entry.FullName == "audio file.mp3"));
+            Assert.True(archive.Entries.Any(entry => entry.FullName == Path.GetFileName(generated)));
+            Assert.True(!archive.Entries.Any(entry => entry.FullName == Path.GetFileName(original)));
+        });
+    }
+
+    [Fact]
+    public void PortableFallbackUsesUniqueNamesAndDoesNotIncludeItsOwnDirectory()
+    {
+        WithImportLayout((original, generated, _) =>
+        {
+            string fallback = Path.Combine(Path.GetDirectoryName(original)!, "Failed Imports");
+            Directory.CreateDirectory(fallback);
+            File.WriteAllText(Path.Combine(fallback, "old.osz"), "old fallback");
+            var importer = new PortableFallbackArchiveImporter(new FailedImporter());
+
+            BeatmapImportResult first = importer.ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+            BeatmapImportResult second = importer.ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(first.ImportArchivePath is not null && second.ImportArchivePath is not null);
+            Assert.True(!first.ImportArchivePath!.Equals(second.ImportArchivePath, StringComparison.Ordinal));
+            using ZipArchive firstArchive = ZipFile.OpenRead(first.ImportArchivePath);
+            Assert.True(!firstArchive.Entries.Any(entry => entry.FullName.StartsWith("Failed Imports/", StringComparison.Ordinal)));
+            Assert.Equal("old fallback", File.ReadAllText(Path.Combine(fallback, "old.osz")));
+        });
+    }
+
+    [Fact]
+    public void PortableFallbackRejectsTraversalAndPreservesTheOriginalFailure()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            string resource = Path.Combine(Path.GetDirectoryName(original)!, "audio file.mp3");
+            var context = new HRandomPlus.Integration.Beatmaps.LazerBeatmapSelectionContext(Guid.NewGuid(), fallback,
+                new[] { new HRandomPlus.Integration.Beatmaps.BeatmapResource("../unsafe.mp3", resource) }, null);
+            var importer = new PortableFallbackArchiveImporter(new FailedImporter());
+
+            BeatmapImportResult result = importer.ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback, context)).GetAwaiter().GetResult();
+
+            Assert.True(!result.Success);
+            Assert.True(result.ImportArchivePath is null);
+            Assert.Contains("All normal import methods failed", result.Message);
+            Assert.Contains("Unsafe archive resource name", result.Message);
+            Assert.True(File.Exists(generated));
+            Assert.True(!Directory.Exists(fallback) || Directory.GetFiles(fallback, "*.osz").Length == 0);
+        });
+    }
+
+    [Fact]
+    public void PortableLazerFallbackNeutralizesBeatmapIdentifiers()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            string beatmap = System.Text.Encoding.UTF8.GetString(TestBeatmaps.Mania(4,
+                    new[] { TestBeatmaps.Note(4, 0, 1000) }))
+                .Replace("Version:Test", "Version:Test\nBeatmapID:123\nBeatmapSetID:456", StringComparison.Ordinal);
+            File.WriteAllText(generated, beatmap);
+            string audio = Path.Combine(Path.GetDirectoryName(original)!, "audio file.mp3");
+            var context = new HRandomPlus.Integration.Beatmaps.LazerBeatmapSelectionContext(Guid.NewGuid(), fallback,
+                new[] { new HRandomPlus.Integration.Beatmaps.BeatmapResource("audio.mp3", audio) }, null);
+            var importer = new PortableFallbackArchiveImporter(new FailedImporter());
+
+            BeatmapImportResult result = importer.ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback, context)).GetAwaiter().GetResult();
+
+            string archivePath = result.ImportArchivePath
+                ?? throw new InvalidOperationException("The lazer fallback archive was not returned.");
+            using ZipArchive archive = ZipFile.OpenRead(archivePath);
+            ZipArchiveEntry map = archive.Entries.Single(entry => entry.Name.EndsWith(".osu", StringComparison.OrdinalIgnoreCase));
+            using var reader = new StreamReader(map.Open());
+            string archivedBeatmap = reader.ReadToEnd();
+            Assert.Contains("BeatmapID:0", archivedBeatmap);
+            Assert.Contains("BeatmapSetID:0", archivedBeatmap);
+        });
     }
 
     [Fact]
@@ -357,6 +485,14 @@ public class ImportIntegrationTests
     {
         public Task<ProcessRunResult> RunAsync(ProcessRunRequest request, CancellationToken cancellationToken = default)
             => Task.FromResult(run(request, cancellationToken));
+    }
+
+    private sealed class FailedImporter : IBeatmapImporter
+    {
+        public Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new BeatmapImportResult("failed", true, false, request.GeneratedPath,
+                "All normal import methods failed."));
     }
 
     private sealed class FakeCleaner(bool succeeds) : ITemporaryDirectoryCleaner
