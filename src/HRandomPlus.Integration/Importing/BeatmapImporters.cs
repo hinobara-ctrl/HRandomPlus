@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Diagnostics;
 using HRandomPlus.Beatmaps;
+using HRandomPlus.Core;
 using HRandomPlus.Integration.Beatmaps;
 
 namespace HRandomPlus.Integration.Importing;
@@ -12,6 +13,26 @@ public sealed record BeatmapImportRequest(string OriginalPath, string GeneratedP
 public sealed record BeatmapImportResult(string Strategy, bool AutomaticImportAttempted, bool Success,
                                          string PreservedOutputPath, string Message, string? ImportArchivePath = null,
                                          bool FallbackUsed = false, string? Diagnostics = null);
+
+public static class BeatmapImportStatus
+{
+    public static string Format(string outputVersion, long seed, BeatmapImportResult import)
+    {
+        string outcome = !import.Success
+            ? "Import: FAILED - manual import required"
+            : import.FallbackUsed
+                ? "Import: NATIVE FALLBACK - press F5 in osu!stable"
+                : import.Strategy switch
+                {
+                    "wine-side-copy" => "Import: WINE-SIDE COPY COMPLETED",
+                    "lazer-osz" => "Import: SENT TO osu!lazer - confirm in Song Select",
+                    "winello-osz" => "Import: SENT TO osu!stable THROUGH WINELLO",
+                    "native-side-copy" => "Import: NATIVE COPY COMPLETED",
+                    _ => "Import: OUTPUT CREATED"
+                };
+        return $"{outcome}\nMap generated: {outputVersion}\nSeed: {seed}\nOutput: {import.PreservedOutputPath}\n{import.Message}";
+    }
+}
 
 public interface IBeatmapImporter
 {
@@ -82,59 +103,46 @@ public sealed class NativeSideFileImporter : IBeatmapImporter
             return Task.FromResult(new BeatmapImportResult("native-side-copy", false, false, generated,
                 "The generated beatmap could not be found."));
 
-        string? destination = null;
         try
         {
             string directory = Path.GetDirectoryName(Path.GetFullPath(request.OriginalPath))
                 ?? throw new InvalidDataException("The original beatmap has no parent directory.");
-            destination = UniquePath(Path.Combine(directory, Path.GetFileName(generated)));
-            File.Copy(generated, destination, overwrite: false);
-            if (!FilesMatch(generated, destination))
-                throw new IOException("The copied beatmap does not match the generated file.");
+            string destination;
+            using (FileStream source = File.OpenRead(generated))
+            {
+                destination = UniqueFile.Write(Path.Combine(directory, Path.GetFileName(generated)), output =>
+                {
+                    source.CopyTo(output);
+                    output.Flush();
+                    source.Position = 0;
+                    output.Position = 0;
+                    if (!SHA256.HashData(source).SequenceEqual(SHA256.HashData(output)))
+                        throw new IOException("The copied beatmap does not match the generated file.");
+                });
+            }
             try { File.Delete(generated); } catch { }
             return Task.FromResult(new BeatmapImportResult("native-side-copy", true, true, destination,
                 "Difficulty copied beside the original beatmap."));
         }
         catch (Exception ex)
         {
-            if (destination is not null)
-            {
-                try { File.Delete(destination); } catch { }
-            }
             return Task.FromResult(new BeatmapImportResult("native-side-copy", true, false, generated,
                 $"The difficulty was generated, but it could not be copied beside the original beatmap: {ex.Message}"));
         }
-    }
-
-    private static string UniquePath(string candidate)
-    {
-        if (!File.Exists(candidate)) return candidate;
-        string directory = Path.GetDirectoryName(candidate)!;
-        string name = Path.GetFileNameWithoutExtension(candidate);
-        string extension = Path.GetExtension(candidate);
-        for (int index = 2; ; index++)
-        {
-            string numbered = Path.Combine(directory, $"{name} {index}{extension}");
-            if (!File.Exists(numbered)) return numbered;
-        }
-    }
-
-    private static bool FilesMatch(string source, string destination)
-    {
-        var sourceInfo = new FileInfo(source);
-        var destinationInfo = new FileInfo(destination);
-        if (!sourceInfo.Exists || !destinationInfo.Exists || sourceInfo.Length != destinationInfo.Length) return false;
-        using FileStream sourceStream = File.OpenRead(source);
-        using FileStream destinationStream = File.OpenRead(destination);
-        return SHA256.HashData(sourceStream).SequenceEqual(SHA256.HashData(destinationStream));
     }
 }
 
 public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
 {
     private readonly IBeatmapImporter inner;
+    private readonly PortableArchiveLimits limits;
 
-    public PortableFallbackArchiveImporter(IBeatmapImporter inner) => this.inner = inner;
+    public PortableFallbackArchiveImporter(IBeatmapImporter inner, PortableArchiveLimits? limits = null)
+    {
+        this.inner = inner;
+        this.limits = limits ?? PortableArchiveLimits.Default;
+        this.limits.Validate();
+    }
 
     public async Task<BeatmapImportResult> ImportAsync(BeatmapImportRequest request,
         CancellationToken cancellationToken = default)
@@ -144,7 +152,7 @@ public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
 
         try
         {
-            string archive = CreateArchive(request);
+            string archive = CreateArchive(request, limits);
             return result with
             {
                 ImportArchivePath = archive,
@@ -162,13 +170,13 @@ public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
         }
     }
 
-    private static string CreateArchive(BeatmapImportRequest request)
+    private static string CreateArchive(BeatmapImportRequest request, PortableArchiveLimits limits)
     {
         string generated = Path.GetFullPath(request.GeneratedPath);
         if (!File.Exists(generated)) throw new FileNotFoundException("The generated beatmap no longer exists.", generated);
         string fallbackDirectory = Path.GetFullPath(request.FallbackDirectory);
         Directory.CreateDirectory(fallbackDirectory);
-        string archivePath = UniqueArchivePath(fallbackDirectory, Path.GetFileNameWithoutExtension(generated));
+        string archivePath = Path.Combine(fallbackDirectory, Path.GetFileNameWithoutExtension(generated) + ".osz");
 
         var resources = new List<(string SourcePath, string EntryName)>();
         if (request.LazerContext is not null)
@@ -192,22 +200,29 @@ public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
             foreach (string resourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
             {
                 string fullResourcePath = Path.GetFullPath(resourcePath);
+                string extension = Path.GetExtension(fullResourcePath);
                 if (fullResourcePath.StartsWith(fallbackPrefix, pathComparison) ||
-                    Path.GetExtension(fullResourcePath).Equals(".osu", StringComparison.OrdinalIgnoreCase)) continue;
+                    extension.Equals(".osu", StringComparison.OrdinalIgnoreCase) ||
+                    extension.Equals(".osz", StringComparison.OrdinalIgnoreCase) ||
+                    extension.Equals(".zip", StringComparison.OrdinalIgnoreCase)) continue;
                 resources.Add((fullResourcePath,
                     SafeEntryName(Path.GetRelativePath(sourceDirectory, fullResourcePath))));
             }
         }
 
-        try
+        resources = resources
+            .Where(resource => File.Exists(resource.SourcePath))
+            .DistinctBy(resource => resource.EntryName, StringComparer.Ordinal)
+            .ToList();
+        ValidateLimits(generated, resources, limits);
+
+        return UniqueFile.Write(archivePath, stream =>
         {
-            using ZipArchive archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
-            var entries = new HashSet<string>(StringComparer.Ordinal);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true);
+            long expandedBytes = 0;
             foreach ((string sourcePath, string entryName) in resources)
-            {
-                if (entries.Add(entryName))
-                    archive.CreateEntryFromFile(sourcePath, entryName, CompressionLevel.Optimal);
-            }
+                AddFile(archive, sourcePath, entryName, limits.MaximumEntryBytes,
+                    limits.MaximumExpandedBytes, ref expandedBytes);
 
             string generatedName = SafeEntryName(Path.GetFileName(generated));
             ZipArchiveEntry generatedEntry = archive.CreateEntry(generatedName, CompressionLevel.Optimal);
@@ -215,30 +230,72 @@ public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
             if (request.LazerContext is null)
             {
                 using FileStream source = File.OpenRead(generated);
-                source.CopyTo(destination);
+                CopyLimited(source, destination, limits.MaximumBeatmapBytes,
+                    limits.MaximumExpandedBytes, ref expandedBytes, generatedName);
             }
             else
             {
                 OsuBeatmapDocument document = OsuBeatmapDocument.Parse(generated, File.ReadAllBytes(generated));
                 document.SetBeatmapId(0);
                 document.SetBeatmapSetId(0);
-                destination.Write(document.ToBytes());
+                byte[] bytes = document.ToBytes();
+                if (bytes.LongLength > limits.MaximumBeatmapBytes)
+                    throw new InvalidDataException($"Generated beatmap exceeds the {limits.MaximumBeatmapBytes}-byte fallback limit.");
+                if (expandedBytes + bytes.LongLength > limits.MaximumExpandedBytes)
+                    throw new InvalidDataException($"Portable fallback exceeds the {limits.MaximumExpandedBytes}-byte expanded-size limit.");
+                destination.Write(bytes);
+                expandedBytes += bytes.LongLength;
             }
-            return archivePath;
-        }
-        catch
+        });
+    }
+
+    private static void ValidateLimits(string generated,
+        IReadOnlyCollection<(string SourcePath, string EntryName)> resources, PortableArchiveLimits limits)
+    {
+        if (resources.Count + 1 > limits.MaximumEntries)
+            throw new InvalidDataException($"Portable fallback exceeds the {limits.MaximumEntries}-entry limit.");
+        long generatedBytes = new FileInfo(generated).Length;
+        if (generatedBytes > limits.MaximumBeatmapBytes)
+            throw new InvalidDataException($"Generated beatmap exceeds the {limits.MaximumBeatmapBytes}-byte fallback limit.");
+
+        long total = generatedBytes;
+        foreach ((string sourcePath, _) in resources)
         {
-            try { File.Delete(archivePath); } catch { }
-            throw;
+            long length = new FileInfo(sourcePath).Length;
+            if (length > limits.MaximumEntryBytes)
+                throw new InvalidDataException($"Fallback resource exceeds the {limits.MaximumEntryBytes}-byte entry limit: {Path.GetFileName(sourcePath)}");
+            if (total > limits.MaximumExpandedBytes - length)
+                throw new InvalidDataException($"Portable fallback exceeds the {limits.MaximumExpandedBytes}-byte expanded-size limit.");
+            total += length;
         }
     }
 
-    private static string UniqueArchivePath(string directory, string name)
+    private static void AddFile(ZipArchive archive, string sourcePath, string entryName,
+        long maximumEntryBytes, long maximumExpandedBytes, ref long expandedBytes)
     {
-        string candidate = Path.Combine(directory, $"{name}.osz");
-        for (int index = 2; File.Exists(candidate); index++)
-            candidate = Path.Combine(directory, $"{name} {index}.osz");
-        return candidate;
+        ZipArchiveEntry entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+        using Stream destination = entry.Open();
+        using FileStream source = File.OpenRead(sourcePath);
+        CopyLimited(source, destination, maximumEntryBytes, maximumExpandedBytes,
+            ref expandedBytes, entryName);
+    }
+
+    private static void CopyLimited(Stream source, Stream destination, long maximumEntryBytes,
+        long maximumExpandedBytes, ref long expandedBytes, string entryName)
+    {
+        byte[] buffer = new byte[81920];
+        long entryBytes = 0;
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            if (entryBytes > maximumEntryBytes - read)
+                throw new InvalidDataException($"Fallback entry exceeds the {maximumEntryBytes}-byte limit: {entryName}");
+            if (expandedBytes > maximumExpandedBytes - read)
+                throw new InvalidDataException($"Portable fallback exceeds the {maximumExpandedBytes}-byte expanded-size limit.");
+            destination.Write(buffer, 0, read);
+            entryBytes += read;
+            expandedBytes += read;
+        }
     }
 
     private static string SafeEntryName(string value)
@@ -247,6 +304,21 @@ public sealed class PortableFallbackArchiveImporter : IBeatmapImporter
         if (parts.Length == 0 || parts.Any(part => part is "." or ".."))
             throw new InvalidDataException($"Unsafe archive resource name: {value}");
         return string.Join('/', parts);
+    }
+}
+
+public sealed record PortableArchiveLimits(
+    int MaximumEntries = 10_000,
+    long MaximumExpandedBytes = 8L * 1024 * 1024 * 1024,
+    long MaximumEntryBytes = 2L * 1024 * 1024 * 1024,
+    long MaximumBeatmapBytes = 64L * 1024 * 1024)
+{
+    public static PortableArchiveLimits Default { get; } = new();
+
+    internal void Validate()
+    {
+        if (MaximumEntries < 1 || MaximumExpandedBytes < 1 || MaximumEntryBytes < 1 || MaximumBeatmapBytes < 1)
+            throw new ArgumentOutOfRangeException(nameof(PortableArchiveLimits), "Portable archive limits must be positive.");
     }
 }
 
@@ -302,11 +374,12 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
             return Task.FromResult(new BeatmapImportResult("lazer-osz", false, false, request.GeneratedPath,
                 "The generated beatmap could not be found."));
 
-        Directory.CreateDirectory(temporaryRoot);
-        CleanupOldArchives();
         string archivePath = Path.Combine(temporaryRoot, $"HRandomPlus-{Guid.NewGuid():N}.osz");
+        bool archiveComplete = false;
         try
         {
+            Directory.CreateDirectory(temporaryRoot);
+            CleanupOldArchives();
             OsuBeatmapDocument generated = OsuBeatmapDocument.Parse(
                 request.GeneratedPath, File.ReadAllBytes(request.GeneratedPath));
             var resources = request.LazerContext.SetResources
@@ -315,8 +388,9 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
                 .ToArray();
             ValidateRequiredAudio(generated, resources);
 
-            using (ZipArchive archive = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            archivePath = UniqueFile.Write(archivePath, stream =>
             {
+                using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true);
                 var addedEntries = new HashSet<string>(StringComparer.Ordinal);
                 foreach ((BeatmapResource resource, string entryName) in resources)
                 {
@@ -330,14 +404,15 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
                 ZipArchiveEntry entry = archive.CreateEntry(Path.GetFileName(request.GeneratedPath), CompressionLevel.Optimal);
                 using Stream output = entry.Open();
                 output.Write(generated.ToBytes());
-            }
+            });
+            archiveComplete = true;
 
             bool launched = launcher.Launch(archivePath, request.LazerContext.LazerExecutablePath, out string? error);
             if (!launched)
             {
                 string preserved = PreserveArchive(archivePath, request.FallbackDirectory);
-                return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, request.GeneratedPath,
-                    $"The local variant was generated, but lazer import could not start: {error}", preserved));
+                return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, preserved,
+                    $"The local variant was generated, but lazer import could not start: {error}. Archive preserved at: {preserved}", preserved));
             }
 
             _ = DeleteLaterAsync(archivePath);
@@ -346,9 +421,11 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
         }
         catch (Exception ex)
         {
-            string? preserved = File.Exists(archivePath) ? PreserveArchive(archivePath, request.FallbackDirectory) : null;
-            return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, request.GeneratedPath,
-                $"The local variant was generated, but its lazer archive failed: {ex.Message}", preserved));
+            string? preserved = archiveComplete ? PreserveArchive(archivePath, request.FallbackDirectory) : null;
+            string message = $"The local variant was generated, but its lazer archive failed: {ex.Message}";
+            if (preserved is not null) message += $" Archive preserved at: {preserved}";
+            return Task.FromResult(new BeatmapImportResult("lazer-osz", true, false, preserved ?? request.GeneratedPath,
+                message, preserved));
         }
     }
 
@@ -387,12 +464,22 @@ public sealed class LazerArchiveImporter : IBeatmapImporter
 
     private static string PreserveArchive(string source, string fallbackDirectory)
     {
-        Directory.CreateDirectory(fallbackDirectory);
-        string destination = Path.Combine(fallbackDirectory, "HRandomPlus-lazer-import.osz");
-        for (int index = 2; File.Exists(destination); index++)
-            destination = Path.Combine(fallbackDirectory, $"HRandomPlus-lazer-import-{index}.osz");
-        File.Move(source, destination);
-        return destination;
+        try
+        {
+            Directory.CreateDirectory(fallbackDirectory);
+            for (int index = 1; ; index++)
+            {
+                string destination = Path.Combine(fallbackDirectory, index == 1
+                    ? "HRandomPlus-lazer-import.osz" : $"HRandomPlus-lazer-import-{index}.osz");
+                try { File.Move(source, destination); return destination; }
+                catch (IOException) when (File.Exists(destination) || Directory.Exists(destination)) { }
+            }
+        }
+        catch
+        {
+            // A completed archive is still usable at its temporary path if preservation fails.
+            return source;
+        }
     }
 
     private static async Task DeleteLaterAsync(string path)
@@ -439,22 +526,28 @@ public sealed class WineSideFileImporter : IBeatmapImporter
             return new BeatmapImportResult("wine-side-copy", false, false, generated,
                 "The generated beatmap could not be found.");
 
-        string destination = FindUniqueDestination(original, generated);
+        string destination = DestinationCandidate(original, generated);
         var diagnostics = new List<string>
         {
             $"sourceLinux={generated}",
-            $"destinationLinux={destination}",
             $"command={command}"
         };
 
+        FileStream? nameReservation = null;
+        string? reservationPath = null;
         try
         {
+            (destination, reservationPath, nameReservation) = ReserveDestinationName(destination);
+            // The reservation is deliberately not the final .osu. Wine must create the
+            // final file so osu!stable receives the same creation event as a direct Wine copy.
+            diagnostics.Add($"destinationLinux={destination}");
+            diagnostics.Add($"nameReservation={reservationPath}");
             (ProcessRunResult sourceResult, string? sourceWine) = await ConvertPathAsync(generated, cancellationToken)
                 .ConfigureAwait(false);
             AppendProcessDiagnostics(diagnostics, "winepathSource", sourceResult);
             diagnostics.Add($"sourceWine={sourceWine ?? "<empty>"}");
             if (!sourceResult.Success || string.IsNullOrWhiteSpace(sourceWine))
-                return NativeFallback(request, generated, destination, diagnostics,
+                return Fallback(
                     FailureReason("source winepath", sourceResult, sourceWine));
 
             (ProcessRunResult destinationResult, string? destinationWine) = await ConvertPathAsync(destination, cancellationToken)
@@ -462,7 +555,7 @@ public sealed class WineSideFileImporter : IBeatmapImporter
             AppendProcessDiagnostics(diagnostics, "winepathDestination", destinationResult);
             diagnostics.Add($"destinationWine={destinationWine ?? "<empty>"}");
             if (!destinationResult.Success || string.IsNullOrWhiteSpace(destinationWine))
-                return NativeFallback(request, generated, destination, diagnostics,
+                return Fallback(
                     FailureReason("destination winepath", destinationResult, destinationWine));
 
             ProcessRunResult copyResult = await processRunner.RunAsync(
@@ -470,7 +563,7 @@ public sealed class WineSideFileImporter : IBeatmapImporter
                     new[]
                     {
                         "--wine", "cmd", "/d", "/v:off", "/s", "/c",
-                        "copy /y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\""
+                        "copy /b /-y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\" <nul"
                     }, timeout,
                     new Dictionary<string, string>(StringComparer.Ordinal)
                     {
@@ -480,10 +573,10 @@ public sealed class WineSideFileImporter : IBeatmapImporter
                 cancellationToken).ConfigureAwait(false);
             AppendProcessDiagnostics(diagnostics, "wineCopy", copyResult);
             if (!copyResult.Success)
-                return NativeFallback(request, generated, destination, diagnostics,
+                return Fallback(
                     FailureReason("Wine-side copy", copyResult, "copy"));
             if (!File.Exists(destination) || !FilesMatch(generated, destination))
-                return NativeFallback(request, generated, FindUniqueDestination(original, generated), diagnostics,
+                return Fallback(
                     "Wine-side copy returned success, but the destination was missing or did not match the generated file.");
 
             TryDeleteStaging(generated, destination, diagnostics);
@@ -499,8 +592,27 @@ public sealed class WineSideFileImporter : IBeatmapImporter
         catch (Exception ex)
         {
             diagnostics.Add($"unexpected={ex.GetType().Name}: {ex.Message}");
-            return NativeFallback(request, generated, destination, diagnostics,
+            return Fallback(
                 $"Unexpected Wine-side import error: {ex.Message}");
+        }
+        finally
+        {
+            CleanupReservation();
+        }
+
+        BeatmapImportResult Fallback(string reason)
+        {
+            CleanupReservation();
+            return NativeFallback(request, generated, destination, diagnostics, reason);
+        }
+
+        void CleanupReservation()
+        {
+            nameReservation?.Dispose();
+            nameReservation = null;
+            if (reservationPath is not null)
+                try { File.Delete(reservationPath); } catch { }
+            reservationPath = null;
         }
     }
 
@@ -523,7 +635,11 @@ public sealed class WineSideFileImporter : IBeatmapImporter
         {
             destination = EnsureUniqueDestination(destination);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(generated, destination, overwrite: false);
+            destination = UniqueFile.Write(destination, stream =>
+            {
+                using FileStream source = File.OpenRead(generated);
+                source.CopyTo(stream);
+            });
             if (!FilesMatch(generated, destination))
                 throw new IOException("The native fallback destination did not match the generated file.");
             TryDeleteStaging(generated, destination, diagnostics);
@@ -542,11 +658,48 @@ public sealed class WineSideFileImporter : IBeatmapImporter
         }
     }
 
-    private static string FindUniqueDestination(string original, string generated)
+    private static string DestinationCandidate(string original, string generated)
     {
         string directory = Path.GetDirectoryName(original)
             ?? throw new InvalidDataException("The original beatmap has no parent directory.");
-        return EnsureUniqueDestination(Path.Combine(directory, Path.GetFileName(generated)));
+        return Path.Combine(directory, Path.GetFileName(generated));
+    }
+
+    private static (string Destination, string ReservationPath, FileStream Reservation) ReserveDestinationName(
+        string candidate)
+    {
+        string directory = Path.GetDirectoryName(candidate)!;
+        Directory.CreateDirectory(directory);
+        string baseName = Path.GetFileNameWithoutExtension(candidate);
+        string extension = Path.GetExtension(candidate);
+        for (int index = 1; ; index++)
+        {
+            string destination = index == 1
+                ? candidate
+                : Path.Combine(directory, $"{baseName} {index}{extension}");
+            if (File.Exists(destination) || Directory.Exists(destination)) continue;
+            string reservationPath = destination + ".hrandomplus-reservation";
+            try
+            {
+                var reservation = new FileStream(reservationPath, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.Read, 1, FileOptions.WriteThrough);
+                if (!File.Exists(destination) && !Directory.Exists(destination))
+                    return (destination, reservationPath, reservation);
+                reservation.Dispose();
+                try { File.Delete(reservationPath); } catch { }
+            }
+            catch (IOException ex) when (IsNameCollision(ex, reservationPath))
+            {
+                // Another HRandomPlus process owns this candidate; try the next name.
+            }
+        }
+    }
+
+    private static bool IsNameCollision(IOException exception, string path)
+    {
+        if (File.Exists(path) || Directory.Exists(path)) return true;
+        int nativeCode = exception.HResult & 0xffff;
+        return nativeCode is 17 or 32 or 80 or 183;
     }
 
     private static string EnsureUniqueDestination(string candidate)
@@ -574,7 +727,11 @@ public sealed class WineSideFileImporter : IBeatmapImporter
         {
             Directory.CreateDirectory(directory);
             string destination = EnsureUniqueDestination(Path.Combine(directory, Path.GetFileName(generated)));
-            File.Copy(generated, destination, overwrite: false);
+            destination = UniqueFile.Write(destination, stream =>
+            {
+                using FileStream source = File.OpenRead(generated);
+                source.CopyTo(stream);
+            });
             diagnostics.Add($"preservedFallback={destination}");
             return destination;
         }
@@ -665,10 +822,12 @@ public sealed class WinelloArchiveImporter : IBeatmapImporter
         string temporaryRoot = Path.Combine(temporaryBase, Guid.NewGuid().ToString("N"));
         string temporaryArchive = Path.Combine(temporaryRoot, "HRandomPlus-import.osz");
         Directory.CreateDirectory(temporaryRoot);
+        bool archiveComplete = false;
         try
         {
             ZipFile.CreateFromDirectory(sourceDirectory, temporaryArchive, CompressionLevel.Optimal, includeBaseDirectory: false);
             EnsureGeneratedBeatmapIsIncluded(temporaryArchive, sourceDirectory, generated);
+            archiveComplete = true;
             var run = new ProcessRunRequest(command, new[] { "--osuhandler", temporaryArchive }, timeout);
             ProcessRunResult result = await processRunner.RunAsync(run, cancellationToken).ConfigureAwait(false);
             if (result.Success)
@@ -684,7 +843,7 @@ public sealed class WinelloArchiveImporter : IBeatmapImporter
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            string? preservedArchive = File.Exists(temporaryArchive)
+            string? preservedArchive = archiveComplete
                 ? PreserveArchive(temporaryArchive, request.FallbackDirectory)
                 : null;
             return new BeatmapImportResult("winello-osz", true, false, generated,

@@ -124,6 +124,7 @@ public static class Program
         if (seed.HasValue) config.Seed = seed;
         output ??= Path.Combine(Path.GetDirectoryName(Path.GetFullPath(input))!, Path.GetFileNameWithoutExtension(input) + "_HRandom.osz");
         reportPath ??= Path.ChangeExtension(output, ".report.json");
+        ArchivePathSafety.Validate(input, output, reportPath);
         ArchiveReport report = new OsuArchive().Process(input, output, config, difficulties, overwrite);
         OsuArchive.SaveReport(report, reportPath);
         Console.WriteLine($"OSZ generado: {report.Output}");

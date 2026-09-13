@@ -36,6 +36,11 @@ release-evidence.txt
 .DS_Store
 Thumbs.db
 *.osz
+*.hrp-profile.json
+/config.json
+/Generated Beatmaps/
+*.swp
+*.swo
 *.report.json
 FodyWeavers.xsd
 AvaloniaUI/

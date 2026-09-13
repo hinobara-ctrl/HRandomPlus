@@ -6,7 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/HRandomPlus.Desktop/GuideContent.cs" Link="GuideContent.cs" />
     <ProjectReference Include="../../src/HRandomPlus.Core/HRandomPlus.Core.csproj" />
     <ProjectReference Include="../../src/HRandomPlus.Integration/HRandomPlus.Integration.csproj" />
+    <ProjectReference Include="../../src/HRandomPlus.Cli/HRandomPlus.Cli.csproj" />
   </ItemGroup>
 </Project>

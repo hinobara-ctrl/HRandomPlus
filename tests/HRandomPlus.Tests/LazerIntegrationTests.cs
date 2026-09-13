@@ -222,6 +222,7 @@ public class LazerIntegrationTests
         string custom = Path.Combine(root, "custom-lazer");
         Directory.CreateDirectory(defaultRoot);
         File.WriteAllText(Path.Combine(defaultRoot, "storage.ini"), $"FullPath = {custom}\n");
+        CreateStorage(defaultRoot);
         CreateStorage(custom);
         var discovery = new LazerStorageDiscovery(() => root, () => root,
             OperatingSystem.IsWindows() ? null : new[] { defaultRoot });

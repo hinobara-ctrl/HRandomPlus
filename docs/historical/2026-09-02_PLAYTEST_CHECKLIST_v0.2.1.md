@@ -1,3 +1,4 @@
+<!-- document-status: historical -->
 # HRandomPlus v0.2.1-playtest
 
 Los checks de stable documentan regresiones ya verificadas. Los checks de lazer fueron completados por el propietario en equipos Windows y Linux reales; la cobertura automatizada los complementa, pero no los sustituye.
@@ -33,7 +34,7 @@ Los checks de stable documentan regresiones ya verificadas. Los checks de lazer 
 - [x] Paths con espacios, apóstrofe, `!`, acentos y Unicode (**integración automatizada**).
 - [x] Confirmar la tabla BPM/snaps y editar manualmente el BPM.
 - [x] Cerrar HRandomPlus y confirmar que no quedan procesos auxiliares.
-- [x] Ejecutar las pruebas A/B de [docs/current/LINUX_IMPORT_AB_TEST.md](docs/current/LINUX_IMPORT_AB_TEST.md).
+- [x] Ejecutar las pruebas A/B de [docs/current/LINUX_IMPORT_AB_TEST.md](../current/LINUX_IMPORT_AB_TEST.md).
 - [x] En el build `r2`, confirmar que un mapa resuelto mediante la ruta configurada aparece como detección automática por tosu, no como selección manual.
 - [x] Seleccionar un `.osu` manual mientras tosu detecta un mapa: la selección manual permanece mientras osu! siga en ese mismo mapa.
 - [x] Después de la prueba manual anterior, cambiar de mapa dentro de osu!: la detección automática recupera el control con el mapa nuevo.
@@ -56,7 +57,7 @@ Los checks de stable documentan regresiones ya verificadas. Los checks de lazer 
 - [x] Probar almacenamiento estándar y uno configurado por `storage.ini`.
 - [x] Confirmar que el flujo stable + osu-winello + tosu sigue funcionando por separado.
 
-Consulta el procedimiento y las limitaciones en [docs/current/LAZER_IMPLEMENTATION.md](docs/current/LAZER_IMPLEMENTATION.md).
+Consulta el procedimiento y las limitaciones en [docs/current/LAZER_IMPLEMENTATION.md](../current/LAZER_IMPLEMENTATION.md).
 
 ## Delta v0.2.1 — comprobación manual del propietario en Linux
 

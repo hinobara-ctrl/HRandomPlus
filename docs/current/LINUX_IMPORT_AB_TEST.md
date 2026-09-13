@@ -25,7 +25,7 @@ test -f "$SOURCE" && test -d "$DEST_DIR" && test ! -e "$DEST"
 Con osu!stable abierto mediante Winello:
 
 ```bash
-cp -- "$SOURCE" "$DEST"
+cp -n -- "$SOURCE" "$DEST"
 ```
 
 Espera unos segundos sin pulsar F5 y anota si aparece la dificultad.
@@ -37,15 +37,19 @@ Borra primero la dificultad de prueba desde osu! o usa otro nombre único. Convi
 ```bash
 SOURCE_WIN="$(osu-wine --wine winepath -w "$SOURCE" | tr -d '\r')"
 DEST_WIN="$(osu-wine --wine winepath -w "$DEST" | tr -d '\r')"
-osu-wine --wine cmd /d /c copy /y "$SOURCE_WIN" "$DEST_WIN"
+osu-wine --wine cmd /d /v:off /c copy /-y "$SOURCE_WIN" "$DEST_WIN"
 ```
 
 Espera unos segundos sin pulsar F5 y anota si aparece la dificultad.
 
 ## Interpretación y comportamiento implementado
 
-- La aplicación selecciona siempre la copia mediante Wine para osu!stable en Linux; la opción **Write beside the original beatmap** ya no forma parte de la interfaz.
+- La aplicación selecciona siempre la copia mediante Wine para osu!stable en Linux.
 - Cada ruta se convierte mediante `winepath`; nunca se construye `Z:` manualmente.
 - Si la copia mediante Wine falla, la copia nativa conserva el resultado y la UI recomienda F5.
 - Si también falla la copia nativa, se intenta preservar un `.osz` portable en `Failed Imports`, junto al ejecutable de HRandomPlus.
 - Los fallos y rutas complejas están **PROBADOS CON MOCKS**; la prueba manual de esta integración completa debe repetirse con cada candidato de release.
+
+The interactive A/B command above prompts on an existing destination: answer No and choose a new name. The application passes paths through environment variables with delayed expansion disabled; this manual command is only for ordinary disposable paths. Do not use it to validate shell metacharacters.
+
+The application reserves the destination name with a separate sidecar and asks Wine to create the final `.osu` with no-overwrite copying. It removes its sidecar after success, failure or cancellation. This preserves unique names between HRandomPlus processes without turning Wine's creation into an overwrite of a Linux-created empty file. The native fallback also creates a new file atomically. Recheck detection without F5 on real Winello after this change; simulated process tests cannot verify Wine filesystem notifications.

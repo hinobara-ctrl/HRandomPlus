@@ -4,8 +4,10 @@ namespace HRandomPlus.Tests;
 
 public static class Program
 {
-    public static int Main()
+    public static int Main(string[] args)
     {
+        if (args.Length == 4 && args[0] == "--file-worker")
+            return FileSafetyTests.RunWorker(args[1], args[2], args[3]);
         int passed = 0;
         int failed = 0;
         Assembly assembly = typeof(Program).Assembly;

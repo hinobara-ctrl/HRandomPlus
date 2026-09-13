@@ -3,7 +3,7 @@
 
 ## Requisitos
 
-- SDK .NET 8 o posterior capaz de compilar targets `net8.0` y `net8.0-windows`.
+- SDK .NET 10 (como CI) para compilar targets `net8.0` y `net8.0-windows`.
 - Windows x64 para validar la integración de memoria con osu!stable.
 - Linux x64 para las integraciones nativas de lazer y stable mediante tosu/osu-winello.
 
@@ -18,7 +18,7 @@ dotnet run --project tests/HRandomPlus.Tests/HRandomPlus.Tests.csproj -c Release
 pwsh -File scripts/check-repo-consistency.ps1
 ```
 
-El proyecto de pruebas utiliza un runner ejecutable propio; por eso el último comando, también usado por CI, entrega el conteo efectivo de casos. La suite cubre motor, parser, archivos, perfiles, integración simulada, fuentes stable/lazer/tosu, seguridad y migraciones. Los playtests históricos en sistemas reales permanecen documentados, pero no se repiten en cada cambio de hardening cubierto automáticamente.
+El proyecto de pruebas utiliza un runner ejecutable propio; por eso el comando dotnet run, también usado por CI, entrega el conteo efectivo de casos. La suite cubre motor, parser, archivos, perfiles, integración simulada, fuentes stable/lazer/tosu, seguridad y migraciones. Los playtests históricos en sistemas reales permanecen documentados, pero no se repiten en cada cambio de hardening cubierto automáticamente.
 
 El benchmark reproducible de candidatos se ejecuta con:
 
@@ -63,3 +63,7 @@ Después del push, revisar GitHub Actions y confirmar:
 - `release-evidence.txt` del mismo run, sin confundirlo con smoke tests manuales.
 
 Usa `../templates/PRE_PUSH_CHECKLIST.md` como procedimiento estable. No publicar una Release antes de que esos jobs terminen correctamente.
+
+The application Guide lives in `GuideContent.cs` and `GuideWindow.cs`. Content tests cover every configuration field and weight; the consistency checker also checks visible editor labels. GUI layout, keyboard operation and real game import remain manual checks in [RELEASE_CHECKLIST.md](../../RELEASE_CHECKLIST.md).
+
+The release-candidate job installs the same SDK channel as build/test before recording `dotnet --version`. Build evidence is generated only by a successful CI run; changing the canonical version does not create tags or releases.

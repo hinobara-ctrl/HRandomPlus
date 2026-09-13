@@ -1,13 +1,13 @@
 <!-- document-status: current -->
 # Manifiesto de fuentes correspondientes GPL
 
-Candidato de release: `v0.2.1-playtest`
+Candidato de release: `v1.0.0`
 
 Este manifiesto vincula todo el código cubierto por GPL del candidato Windows x64 con sus fuentes correspondientes.
 
 ## Fuentes de HRandomPlus
 
-HRandomPlus `v0.2.1-playtest` se distribuye bajo `GPL-3.0-or-later`. `HRandomPlus-v0.2.1-playtest-source.zip` se genera desde la misma revisión del repositorio usada por los jobs binarios y contiene la solución, todas las fuentes de la aplicación y pruebas, archivos de proyecto/compilación, `NuGet.Config`, configuración de ejemplo, workflow, documentación y material de licencias. Se excluyen outputs generados, cachés de paquetes, configuración personal y beatmaps.
+HRandomPlus `v1.0.0` se distribuye bajo `GPL-3.0-or-later`. `HRandomPlus-v1.0.0-source.zip` se genera desde la misma revisión del repositorio usada por los jobs binarios y contiene la solución, todas las fuentes de la aplicación y pruebas, archivos de proyecto/compilación, `NuGet.Config`, configuración de ejemplo, workflow, documentación y material de licencias. Se excluyen outputs generados, cachés de paquetes, configuración personal y beatmaps.
 
 Los comandos de recompilación están documentados en `README.md`; los comandos automatizados autoritativos están en `.github/workflows/build.yml`.
 
@@ -28,8 +28,8 @@ Ambos tags anotados resuelven al mismo commit declarado en los dos manifiestos N
 - SHA-256 del archivo descargado: `9872dd7c18a1a8a4ec16b8d66b409f377dda9b6974057a9a889fd5c73fad0535`
 - SHA-512 del archivo descargado: `b69f4cf66b7d4895b9f629d698debc080628530e711be419fe106a983268cd2d9d5f0324668a9f443b934eea255d205fd0af0f7894633c011c964cf10c0a059e`
 
-`HRandomPlus-v0.2.1-playtest-gpl-source.zip` expande ese snapshot completo del repositorio y coloca este manifiesto junto a él. El snapshot incluye los proyectos de ambos paquetes, fuentes compartidas, archivos de solución/compilación y la licencia GPL upstream.
+`HRandomPlus-v1.0.0-gpl-source.zip` expande ese snapshot completo del repositorio y coloca este manifiesto junto a él. El snapshot incluye los proyectos de ambos paquetes, fuentes compartidas, archivos de solución/compilación y la licencia GPL upstream.
 
 ## Conjunto de distribución
 
-`HRandomPlus-v0.2.1-playtest-windows-x64-framework-dependent.zip`, `HRandomPlus-v0.2.1-playtest-linux-x64-framework-dependent.zip`, `HRandomPlus-v0.2.1-playtest-source.zip`, `HRandomPlus-v0.2.1-playtest-gpl-source.zip` y `SHA256SUMS.txt` forman un único conjunto de release. No publiques el binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.
+`HRandomPlus-v1.0.0-windows-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-linux-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-source.zip`, `HRandomPlus-v1.0.0-gpl-source.zip` y `SHA256SUMS.txt` forman un único conjunto de release. No publiques el binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.

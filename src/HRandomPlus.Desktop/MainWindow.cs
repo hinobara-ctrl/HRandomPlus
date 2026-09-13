@@ -18,7 +18,7 @@ public sealed class MainWindow : Window
 {
     private readonly SettingsStore store = new();
     private readonly AppSettings settings;
-    private IBeatmapSource source;
+    private readonly ReplaceableBeatmapSource source;
     private readonly BeatmapGenerationService generator = new();
     private readonly IProcessRunner processRunner = new SystemProcessRunner();
     private readonly DetectionStateTracker detectionState = new();
@@ -64,7 +64,7 @@ public sealed class MainWindow : Window
     public MainWindow()
     {
         settings = store.Load();
-        source = PlatformSourceFactory.Create(settings);
+        source = new ReplaceableBeatmapSource(PlatformSourceFactory.Create(settings));
         profiles.AddRange(ProfileCatalog.CreateBuiltIns(settings.CustomConfig, settings.CustomProfileId));
         profiles.AddRange(settings.CustomProfiles);
         Title = "HRandomPlus";
@@ -83,7 +83,7 @@ public sealed class MainWindow : Window
         Closed += (_, _) =>
         {
             pollingCancellation.Cancel();
-            DisposeSource(source);
+            source.Dispose();
             SaveSettings();
         };
         store.Log($"Avalonia application started on {Environment.OSVersion.Platform}");
@@ -159,22 +159,29 @@ public sealed class MainWindow : Window
         left.Children.Add(status);
 
         var parameters = new StackPanel { Spacing = 7, Margin = new Thickness(12) };
-        parameters.Children.Add(Text("Active parameters", 18, FontWeight.SemiBold));
+        var guide = Button("Guide", async () => await new GuideWindow().ShowDialog(this));
+        guide.FontSize = 12;
+        guide.Padding = new Thickness(10, 4);
+        parameters.Children.Add(Row(Text("Active parameters", 18, FontWeight.SemiBold), guide));
+        parameters.Children.Add(Section("TIMING / THRESHOLD"));
         parameters.Children.Add(dynamicThreshold);
-        parameters.Children.Add(preserveDualStages);
         AddEditor(parameters, "MinThresholdMs", "Minimum threshold (ms)");
         AddEditor(parameters, "BaseThresholdMs", "Base threshold (ms)");
         AddEditor(parameters, "MaxThresholdMs", "Maximum threshold (ms)");
+        parameters.Children.Add(Section("KEYMODE / LAYOUT"));
+        parameters.Children.Add(preserveDualStages);
         parameters.Children.Add(Section("BPM / SNAP REFERENCE"));
         bpmBox.TextChanged += (_, _) => UpdateSnapReference();
         parameters.Children.Add(Labeled("Reference BPM", bpmBox));
         parameters.Children.Add(detectedBpms);
         parameters.Children.Add(BuildSnapReference());
+        parameters.Children.Add(Section("SELECTION / HISTORY"));
         AddEditor(parameters, "RecentUsageWindow", "Recent usage window");
         AddEditor(parameters, "PatternHistoryLength", "Pattern history length");
         AddEditor(parameters, "WeightedTopCandidates", "Weighted top candidates");
         AddEditor(parameters, "WeightedTemperature", "Weighted temperature");
         AddEditor(parameters, "MaxCandidateSets", "Maximum candidate sets");
+        parameters.Children.Add(Section("OUTPUT"));
         AddEditor(parameters, "DifficultySuffix", "Difficulty suffix");
         parameters.Children.Add(renameDifficulty);
         parameters.Children.Add(Section("SCORING WEIGHTS"));
@@ -301,8 +308,7 @@ public sealed class MainWindow : Window
                 if (randomizing) continue;
                 try
                 {
-                    IBeatmapSource activeSource = source;
-                    BeatmapSourceResult result = await activeSource.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+                    BeatmapSourceResult result = await source.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
                     if (cancellationToken.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
@@ -393,8 +399,7 @@ public sealed class MainWindow : Window
             {
                 seedBox.Text = result.Seed.ToString(CultureInfo.InvariantCulture);
             }
-            string importMessage = $"\n{import.Message}";
-            SetStatus($"Map generated: {result.OutputVersion}\nSeed: {result.Seed}\nOutput: {import.PreservedOutputPath}{importMessage}");
+            SetStatus(BeatmapImportStatus.Format(result.OutputVersion, result.Seed, import));
             store.Log($"Randomize completed; output={import.PreservedOutputPath}; seed={result.Seed}; importStrategy={import.Strategy}; automaticAttempted={import.AutomaticImportAttempted}; fallback={import.FallbackUsed}; importSuccess={import.Success}; message={import.Message}");
             if (!string.IsNullOrWhiteSpace(import.Diagnostics)) store.Log($"Import diagnostics: {import.Diagnostics}");
         }
@@ -766,14 +771,8 @@ public sealed class MainWindow : Window
     private void ShowError(Exception ex) { SetStatus("Error: " + ex.Message); store.Log($"ERROR {ex}"); }
     private void ReplaceSource(IBeatmapSource replacement)
     {
-        IBeatmapSource previous = source;
-        source = replacement;
+        source.Replace(replacement);
         detectionState.Reset();
-        DisposeSource(previous);
-    }
-    private static void DisposeSource(IBeatmapSource value)
-    {
-        if (value is IDisposable disposable) disposable.Dispose();
     }
 
     private static TextBlock Text(string value, double size = 14, FontWeight? weight = null)

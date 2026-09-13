@@ -1,191 +1,119 @@
 # HRandomPlus
 
-Aplicación multiplataforma para crear dificultades H-Random, S-Random o Custom de osu!mania. Conserva la integración de osu!stable en Windows/Linux y añade detección e importación nativas para osu!lazer en ambos sistemas. Todas las fuentes usan exactamente el mismo motor de randomización.
+HRandomPlus is a desktop application for generating H-Random, S-Random and Custom variants of osu!mania beatmaps. It reassigns notes between columns using the selected configuration and creates a separate difficulty without modifying the original beatmap.
 
-Versión de desarrollo: **v0.2.1-playtest**.
+Code candidate: **v1.0.0**. This version number does not mean a tag or GitHub Release has been published.
 
-HRandomPlus está completo para su propósito actual y entra en modo mantenimiento, centrado principalmente en corregir bugs, regresiones e incompatibilidades.
+## What it changes and preserves
 
-## Funciones
+- Changes column assignments for the whole map or a selected time range.
+- Preserves note start times, long-note end times, note count, key count, timing points and resource references. Long notes crossing a selected range boundary stay unchanged.
+- Checks playable structure and long-note occupancy before writing output.
+- Uses a separate filename and clears `BeatmapID`. Renaming the displayed difficulty is optional. Archives sent to lazer also clear `BeatmapSetID`.
+- Supports a fixed seed for reproducible assignments with the same input, range and parameters. An empty seed chooses a new value on each run.
 
-- Presets protegidos H-Random/S-Random, Custom persistente y perfiles personales con identidad propia.
-- Importación y exportación segura de perfiles `.hrp-profile.json` entre Windows y Linux.
-- Seed aleatoria nueva en cada generación, mostrando siempre el valor utilizado; al escribir una seed manualmente queda fija y reproducible. Los perfiles personalizados conservan esa elección.
-- Protección de long notes y validación antes de escribir.
-- Modo opcional **Preserve dual stages (10K+)**: evita cruces directos entre los stages laterales y trata el centro impar como compartido; permanece deshabilitado en mapas inferiores a 10K.
-- Detección de trills consistente entre scoring y estadísticas, incluidos acordes compatibles y corte tras pausas prolongadas.
-- Detección de osu!stable en Windows aunque osu!lazer esté abierto.
-- Detección read-only de osu!lazer mediante su log y catálogo Realm, sin tosu ni lectura de memoria.
-- Importación segura a lazer mediante una variante local `.osz`; no modifica `client.realm` ni los blobs originales.
-- Detección Linux sin `sudo`, lector de memoria propio ni conversión de letras Wine.
-- Estado de origen inequívoco: osu!stable usa memoria en Windows y tosu en Linux; osu!lazer se detecta nativamente en ambos sistemas, y la selección manual permanece como fuente separada.
-- Selector manual `.osu` para osu!stable en ambas plataformas.
-- Salida con nombre único, `BeatmapID:0` y original intacto.
-- Referencia compacta y editable de BPM a milisegundos para snaps de 1/1 a 1/64; los mapas con varios BPM muestran únicamente su rango.
-- Versión y nombre de archivo únicos incluso al repetir el mismo perfil antes de que osu! refresque.
+## Modes
 
-## Windows
+**H-Random** uses dynamic reuse thresholds and scoring weights. **S-Random** uses zero thresholds and zero scoring weights, selecting among generated candidates while retaining column availability and long-note constraints. **Custom** is an editable, persistent configuration with its own defaults. Personal profiles store additional configurations.
 
-La compilación `net8.0-windows` conserva `OsuMemoryDataProvider` como fuente automática. HRandomPlus y osu!stable deben ejecutarse con el mismo nivel de permisos. El reader se vincula por nombre y arquitectura, no por PID: osu!stable x86 puede convivir con osu!lazer x64, pero la detección automática se abstiene si existe más de un proceso x86 elegible. Ante esa ambigüedad, cierra las otras instancias o usa **Select .osu manually**. **Configure osu!stable** sólo ayuda a localizar una instalación y no reemplaza la identidad del proceso en ejecución.
+All modes use the same engine. They are configurations, not universal difficulty levels. Optional **Preserve dual stages (10K+)** restricts direct moves between opposite lateral stages; the central column in odd key counts is shared.
 
-En osu!stable, Windows copia la dificultad junto al beatmap original. Si la copia no puede completarse, conserva un `.osz` portable dentro de `Failed Imports`, junto al ejecutable de HRandomPlus.
+## Supported environments
 
-## osu!lazer nativo (Windows y Linux)
+| Environment | Detection | Output/import |
+|---|---|---|
+| Windows x64 + osu!stable | Process-memory reader, or manual .osu selection | Copies beside the original difficulty |
+| Linux x64 + stable through Winello/Wine | tosu, or manual .osu selection | Wine-side copy, then native fallback if needed |
+| Windows/Linux x64 + native osu!lazer | Runtime log and read-only Realm catalog | Sends a local .osz variant with set resources |
 
-1. Abre osu!lazer y entra en Song Select.
-2. HRandomPlus localiza el almacenamiento oficial, lee el log runtime activo (incluidos los nombres actuales `<timestamp>.runtime.log`) incrementalmente y resuelve la dificultad contra `client.realm` en modo dinámico y read-only.
-3. Pulsa **Randomize**. El `.osu` generado se conserva en la carpeta de salida de HRandomPlus y se envía a lazer dentro de un `.osz` con los recursos del set.
-4. lazer importa una variante local con IDs desligados (`BeatmapID:0` y `BeatmapSetID:0`); el set y los blobs originales permanecen intactos.
+macOS and other architectures are not packaged by the current workflow. Changes to osu! or tosu can affect detection compatibility.
 
-No hacen falta tosu, Wine, `sudo` ni configurar una carpeta `Songs` para lazer nativo. Se reconocen las rutas estándar `%APPDATA%\osu` y `~/.local/share/osu`, el `FullPath` de `storage.ini` y almacenamientos portables compatibles junto al ejecutable. Si el log actual solo publica el nombre visible y más de una dificultad coincide, HRandomPlus deja la selección sin resolver en vez de elegir un mapa arbitrario.
+## Requirements and installation
 
-La sección **Linux stable / tosu** existe exclusivamente en Linux y configura la conexión de osu!stable mediante osu!-Wine/tosu. No aparece en Windows y permanece deshabilitada mientras osu!lazer sea el origen activo.
+The distributed packages require **.NET Runtime 8 x64**. They are framework-dependent; the runtime is installed separately. Building from source uses the **.NET SDK 10** in CI and targets .NET 8.
 
-Mientras osu!lazer sea el origen activo, **Select .osu manually** y los controles de configuración de osu!stable permanecen deshabilitados. La selección manual es un fallback exclusivo del flujo stable.
+1. Open the repository's [Releases page](https://github.com/hinobara-ctrl/HRandomPlus/releases) and choose an actually published version. The code candidate described here may not yet have a Release.
+2. Download the package matching your system and extract the entire ZIP into a writable directory, keeping its native libraries and notices together.
+3. Run `HRandomPlus.exe` on Windows or `HRandomPlus` on Linux. On Linux, use `chmod +x HRandomPlus` if extraction did not retain the executable permission.
 
-Cuando stable y lazer están abiertos al mismo tiempo, cada adaptador conserva su identidad y gana la selección que haya cambiado más recientemente. **Select .osu manually** sigue teniendo prioridad hasta que el juego cambie realmente de mapa.
+The expected candidate binary names are:
 
-## Linux nativo con osu-winello
+- `HRandomPlus-v1.0.0-windows-x64-framework-dependent.zip`
+- `HRandomPlus-v1.0.0-linux-x64-framework-dependent.zip`
 
-1. Inicia osu!stable y tosu en el mismo entorno Wine; osu-winello ofrece `osu-wine --tosu`.
-2. Comprueba que `http://127.0.0.1:24050/json/v2` responde.
-3. Ejecuta HRandomPlus nativamente en Linux, no bajo Wine.
-4. Selecciona una dificultad en osu!stable.
+Actions artifacts are temporary build outputs. A published Release must also include the corresponding source archives, checksums and build evidence.
 
-Después de extraer el ZIP, marca los ejecutables como ejecutables si el gestor de archivos no conservó el permiso:
+## Basic usage
 
-```bash
-chmod +x HRandomPlus
-```
+1. Open osu! and select a mania difficulty, or use **Select .osu manually** in the stable workflow. Check the map and source shown by HRandomPlus.
+2. Choose H-Random, S-Random, Custom or a personal profile.
+3. Choose **Whole map** or **Selected range**, for example `00:37:005 - 01:13:005`.
+4. Leave Seed empty for a new value on every run, or enter/use **Generate Seed** for a fixed value. **Hold Seed** reuses the last generated seed; **Delete Seed** clears it.
+5. Review **Active parameters**. The **Guide** button beside that heading opens the built-in manual.
+6. Press **Randomize Current Map**. Read Status for the generated difficulty, seed, output path and import result.
+7. Open the generated difficulty in osu! and confirm it loads. The original is preserved.
 
-La ruta de osu-winello se lee desde:
+## Profiles and parameters
 
-```text
-$XDG_DATA_HOME/osuconfig/osupath
-~/.local/share/osuconfig/osupath
-```
+**Guide → Parameters** is the main parameter reference, with individual explanations and examples. Its other sections cover Getting started, Profiles and Integration. The BPM/snap table is a display reference only: editing Reference BPM does not affect the algorithm or map timing.
 
-Para instalaciones personalizadas, usa **Configure native osu! path** y selecciona la raíz que contiene `Songs`. No hace falta `sudo`.
+Scoring weights are not percentages and do not share a universal importance scale. Each term activates under its own conditions. Thresholds influence candidate availability as well as scoring; weights cannot override occupied long-note columns.
 
-Si eliges un `.osu` con **Select .osu manually**, esa selección conserva prioridad mientras osu! siga mostrando el mismo mapa que tosu ya había detectado. Al cambiar de mapa dentro de osu!, HRandomPlus retoma la detección automática.
+H-Random and S-Random cannot be overwritten or deleted. **Save Profile** saves Custom or a personal profile. **Duplicate** captures the current values into a new personal profile. **Reset** restores Custom after confirmation. **Delete Profile** only removes personal profiles.
 
-HRandomPlus genera primero una copia segura y usa `osu-wine --wine winepath -w` más una copia ejecutada dentro del mismo entorno Wine de osu!stable. Las rutas viajan en variables de entorno, fuera del texto interpretado por `cmd`, con expansión retardada desactivada; no se construyen rutas `Z:` manualmente. Si Wine, `winepath` o la copia fallan, usa copia Linux nativa y avisa que osu! puede requerir F5.
+**Export Profile** exports the saved profile; save edits first. **Import Profile** validates a `.hrp-profile.json` and previews it before import. An existing profile identity can be updated or imported as a copy. Exports include parameters and seed, but exclude game paths, connection settings and logs. See the [profile contract](docs/current/PROFILE_SYSTEM_DESIGN.md).
 
-Si ninguna forma de importación o copia puede completarse después de generar la dificultad, Windows y Linux conservan un `.osz` portable en la carpeta `Failed Imports`, junto al ejecutable de HRandomPlus. El archivo puede abrirse o importarse manualmente en osu!stable u osu!lazer.
+## osu!stable and osu!lazer
 
-La [prueba A/B real](docs/current/LINUX_IMPORT_AB_TEST.md) confirmó que la copia Linux nativa necesitó F5 mientras la copia Wine-side fue detectada sin F5. Esto verifica el comportamiento funcional, no la API o mecanismo interno exacto de notificación del filesystem.
+On Windows, run stable and HRandomPlus with the same permission level. **Configure osu!stable** locates the installation containing `Songs`; it does not select a process. Multiple eligible x86 game processes can make detection ambiguous: close extra instances or select a `.osu` manually.
 
-## Diagnóstico tosu
+On Linux, run HRandomPlus natively and stable with tosu in the same Wine environment; Winello provides `osu-wine --tosu`. The default connection is `127.0.0.1:24050`. **Apply settings** saves the Linux tosu connection. **Configure native osu! path** selects the native directory containing `Songs` if discovery fails. A native-copy fallback may require F5 in stable. See the [Linux import procedure](docs/current/LINUX_IMPORT_AB_TEST.md).
 
-```bash
-dotnet HRandomPlus.Cli.dll --diagnose
-dotnet HRandomPlus.Cli.dll --diagnose --host 127.0.0.1 --port 24050
-dotnet HRandomPlus.Cli.dll --diagnose --osu-path /ruta/nativa/osu
-```
+Native lazer requires neither tosu nor Wine. Enter Song Select; standard storage locations, `storage.ini` overrides and compatible portable storage are supported. Ambiguous display names are left unresolved instead of selecting an arbitrary difficulty. A successful archive launch means it was sent to lazer, not that the game confirmed import. Check Song Select. See [lazer integration](docs/current/LAZER_IMPLEMENTATION.md).
 
-El diagnóstico es de solo lectura. Imprime plataforma, fuentes, URL/estado de tosu, Winello, raíz osu!, `Songs`, mapa, ruta `.osu`, existencia y output previsto. No genera ni importa archivos. Códigos: `0` correcto, `3` tosu no disponible y `4` conectado pero sin beatmap resoluble.
+When `storage.ini` defines `FullPath`, that configured storage is authoritative even if the default directory still contains an older valid Realm. With multiple remaining storages, HRandomPlus first associates the selected executable with its portable root or `storage.ini`; unresolved unrelated storages produce a waiting state instead of an arbitrary pairing.
 
-Las rutas dentro del directorio personal se redactan como `%USERPROFILE%` en Windows o `$HOME` en Linux para que la salida pueda compartirse con menor exposición de datos locales.
+When both clients are open, the most recently changed detected selection wins. Manual selection retains priority until the game changes map. Stable-specific manual/configuration controls are disabled while lazer is active. If detection fails, read Status, change difficulty, check the relevant connection/installation, and use manual selection in the stable workflow when available.
 
-## Configuración
+## Output and recovery
 
-Windows conserva `%LOCALAPPDATA%\HRandomPlus`. Linux sigue XDG:
+Generation atomically creates a uniquely named `.osu` in the app's `Generated Beatmaps` data directory. Native stable copying and portable fallback creation also reserve new names atomically. On Linux, a separate sidecar reserves the name while Wine creates the final `.osu`, preserving the file-creation notification expected by osu!stable. Existing generations are retained. Repeated sequential generation disambiguates difficulty names; simultaneous generations can have the same displayed difficulty name while their file paths remain distinct.
 
-- Configuración: `$XDG_CONFIG_HOME/HRandomPlus/config.json`.
-- Datos y salidas: `$XDG_DATA_HOME/HRandomPlus`.
-- Log: `$XDG_STATE_HOME/HRandomPlus/logs/latest.log`.
+Successful stable import removes the staging `.osu`; lazer retains it. If copying/importing fails, the app attempts to preserve a portable `.osz` in **Failed Imports beside the HRandomPlus executable**. An incomplete lazer ZIP is removed and a fresh portable fallback is allowed. A completed ZIP is retained if only launching fails.
 
-Una configuración con JSON corrupto se respalda antes de restaurar defaults. Los fallos transitorios de lectura o permisos no sobrescriben el archivo original ni impiden iniciar la aplicación.
+If resources are unreadable or Failed Imports is unwritable, fallback can also fail. Read Status for the remaining `.osu` or archive path. A completed lazer archive may remain in system temporary storage if moving it fails: copy it promptly, since old import archives are cleaned later. Never assume that an import succeeded solely because a file was generated.
 
-`MaxCandidateSets` admite de 1 a 8192 (default 4096) y `WeightedTopCandidates` no puede superarlo. Los valores persistidos por versiones anteriores se ajustan de forma conservadora al cargar. `DifficultySuffix` permite Unicode normal, pero rechaza caracteres y terminaciones que producirían filenames no portables entre Windows y Linux.
+Portable recovery archives reject pathological inputs before or during creation: at most 10,000 entries, 2 GiB per resource, 8 GiB expanded in total and 64 MiB for the generated beatmap. Existing `.osu`, `.osz`, `.zip` and Failed Imports content from a stable set are not recursively repackaged.
 
-`PreserveDualStages` es configurable por perfil. Cuando está activo en 10K o superior, las notas laterales se randomizan dentro de su stage sin cruzar directamente al opuesto. En keymodes impares la columna central es compartida: puede intercambiar notas con ambos stages, pero continúa siendo neutral únicamente para el cálculo de Hand Balance. En mapas inferiores a 10K la opción no se aplica y aparece deshabilitada.
+Windows data/configuration is under `%LOCALAPPDATA%\HRandomPlus`. Linux follows XDG: configuration under `$XDG_CONFIG_HOME/HRandomPlus`, data under `$XDG_DATA_HOME/HRandomPlus`, and logs under `$XDG_STATE_HOME/HRandomPlus/logs`. Defaults are `~/.config`, `~/.local/share` and `~/.local/state` respectively. Configuration corruption is backed up before defaults are restored; transient read failures do not overwrite the file.
 
-Un acorde continúa un trill cuando contiene la columna alternante esperada pero no la columna anterior; las demás columnas actúan como acompañamiento. Un acorde con ambas columnas rompe la secuencia. Una separación mayor que `4 × MaxThresholdMs` corta el trill y una pausa mayor que `8 × MaxThresholdMs` devuelve Dynamic Threshold a `BaseThresholdMs`.
-
-## Perfiles
-
-- **H-Random** y **S-Random** son presets protegidos: siempre se reconstruyen desde los valores del código y no pueden sobrescribirse ni eliminarse.
-- **Custom** es un único perfil editable. **Save Profile** conserva todos sus parámetros y la seed en la configuración personal; **Reset** restaura sus valores iniciales después de pedir confirmación.
-- **Duplicate** crea una variante personal independiente con GUID nuevo. Solo los perfiles personales pueden eliminarse.
-- **Export Profile** genera un archivo UTF-8 `.hrp-profile.json` con el nombre, descripción, GUID, versiones de formato/motor y todos los parámetros del randomizer.
-- **Import Profile** valida el archivo y muestra una previsualización. Si el GUID ya existe permite actualizarlo o importar una copia; los nombres repetidos reciben un sufijo y `H-Random`, `S-Random` y `Custom` están reservados.
-
-Los perfiles exportados nunca incluyen rutas de osu!, tosu, preferencias de output, logs ni información del mapa actual. Los perfiles importados se copian al `config.json` personal, por lo que el archivo descargado puede eliminarse después. Las configuraciones de versiones anteriores se migran automáticamente: el último perfil histórico llamado Custom se convierte en el Custom persistente y los demás se conservan con nombres únicos.
-
-## Arquitectura
+## Building and tests
 
 ```text
-HRandomPlus.Core         motor, parser, archivos, perfiles y validación
-HRandomPlus.Integration  stable/tosu, osu-winello, osu!lazer Realm/log/import y contratos
-HRandomPlus.Desktop      UI Avalonia para Windows/Linux
-HRandomPlus.Cli          diagnóstico y procesamiento .osz
-HRandomPlus.Tests        regresión portable e integración
-```
-
-La UI y las fuentes no contienen lógica de random. El motor no conoce el sistema operativo ni el origen del mapa.
-
-## Compilación
-
-Los binarios apuntan a `net8.0`/`net8.0-windows`. El workflow oficial usa el SDK .NET 10 estable para compilar esos targets y mantener compatibilidad con los analizadores actuales de Avalonia. El SDK .NET 8 también puede compilar el proyecto, aunque puede mostrar advertencias `CS9057` por la versión de Roslyn.
-
-```bash
 dotnet restore HRandomPlus.sln --locked-mode
-dotnet build HRandomPlus.sln -c Release
-dotnet run --project tests/HRandomPlus.Tests/HRandomPlus.Tests.csproj -c Release
-```
-
-Linux x64 dependiente del framework:
-
-```bash
-dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj \
-  -c Release -f net8.0 -r linux-x64 --self-contained false \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -o publish/linux-x64-framework-dependent
-
-dotnet publish src/HRandomPlus.Cli/HRandomPlus.Cli.csproj \
-  -c Release -r linux-x64 --self-contained false \
-  -p:PublishSingleFile=true -o publish/linux-x64-cli-framework-dependent
-```
-
-Windows x64 Avalonia:
-
-```powershell
-dotnet publish src/HRandomPlus.Desktop/HRandomPlus.Desktop.csproj `
-  -c Release -f net8.0-windows -r win-x64 --self-contained false `
-  -p:PublishSingleFile=true -o publish/windows-x64-framework-dependent
-```
-
-### Variantes de distribución
-
-La distribución vigente tiene exactamente dos artefactos binarios principales: `HRandomPlus-v0.2.1-playtest-windows-x64-framework-dependent.zip` y `HRandomPlus-v0.2.1-playtest-linux-x64-framework-dependent.zip`. Ambos requieren **.NET Runtime 8 x64** instalado. Los paquetes autocontenidos dejaron de formar parte de la distribución normal.
-
-Las fuentes exactas de HRandomPlus y el snapshot GPL correspondiente se publican como assets adicionales de cumplimiento y reproducibilidad; no son variantes binarias de la aplicación.
-
-## CLI OSZ
-
-```bash
-HRandomPlus.Cli beatmap.osz --seed 123456 --config config.example.json
-```
-
-La lectura y extracción de `.osz` usa límites generosos y copia por streaming para rechazar archivos patológicos sin cargar recursos grandes completos en memoria.
-
-## Pruebas
-
-El runner cubre parser, BPM/snaps, OSZ, perfiles/seed, configuración y defaults, nombres repetidos seguros, salida, rangos, seeds reproducibles, keymodes 1K–18K, long notes, JSON/reconexión/timeout de tosu, estados connected/disconnected, rutas Winello, E2E tosu simulado, copia Wine-side y sus fallbacks, logs/rotación/storage/blob/ambigüedad/arbitraje de lazer y creación segura del `.osz` de importación.
-
-La consistencia de versión, targets, distribución, workflow y clasificación documental se comprueba localmente y en CI con:
-
-```powershell
+dotnet build HRandomPlus.sln -c Release --no-restore
+dotnet test HRandomPlus.sln -c Release --no-build
+dotnet run --project tests/HRandomPlus.Tests/HRandomPlus.Tests.csproj -c Release --no-build
 pwsh -File scripts/check-repo-consistency.ps1
 ```
 
-Antes de reportar resultados de una máquina real usa [PLAYTEST_CHECKLIST.md](PLAYTEST_CHECKLIST.md).
+The tests use a custom executable runner. `dotnet test` does not execute these cases; the `dotnet run` command is required and is what CI uses on Windows and Ubuntu. SDK 8 can build locally but may warn about Avalonia analyzers requiring newer Roslyn; use SDK 10 for CI parity.
 
-## Licencias
+The workflow contains the authoritative publish commands for `net8.0-windows/win-x64` and `net8.0/linux-x64`. See [development and release](docs/current/DEVELOPMENT_AND_RELEASE.md), the [pending v1.0.0 checklist](V1_PENDING_CHECKLIST.md) and the [release checklist](RELEASE_CHECKLIST.md).
 
-HRandomPlus se distribuye bajo `GPL-3.0-or-later`; el texto completo está en [LICENSE](LICENSE). Consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y la [auditoría de dependencias](docs/current/DEPENDENCY_LICENSE_AUDIT.md) antes de redistribuir binarios.
+The optional source-built CLI supports `.osz` processing and read-only tosu diagnostics:
 
-La compilación Windows incorpora `OsuMemoryDataProvider 0.12.2` y `ProcessMemoryDataFinder 0.10.2`, también `GPL-3.0-or-later`. Cada Release debe adjuntar tanto las fuentes exactas de HRandomPlus como el snapshot upstream del commit `122dd102fe272de30471cf1f317805cb49ac23a4`; consulta [el manifiesto de fuentes GPL](docs/current/GPL_SOURCE_MANIFEST.md). Los demás componentes conservan sus propias licencias y avisos. Linux consume la API HTTP de tosu y no incorpora los componentes GPL de lectura de memoria. Los dos paquetes distribuidos dependen del framework y no redistribuyen .NET.
+```text
+dotnet run --project src/HRandomPlus.Cli -- beatmap.osz --seed 123456 --config config.example.json
+dotnet run --project src/HRandomPlus.Cli -- --diagnose --host 127.0.0.1 --port 24050
+```
 
-Los artefactos de GitHub Actions son temporales. Los ZIP, `SHA256SUMS.txt` y `release-evidence.txt` solo se convierten en descargas estables cuando el propietario crea una GitHub Release asociada a un tag. La evidencia automática registra el mismo run que produjo los binarios, pero no sustituye pruebas manuales de plataforma.
+CLI processing clears `BeatmapID` on every generated mania difficulty while preserving its set ID. Input, output and JSON report must resolve to three different paths; `--overwrite` applies only to a distinct output archive.
+
+## Repository and licensing
+
+Core owns the parser, configuration, randomizer and validation. Integration owns game detection/import. Desktop provides the Avalonia UI. CLI and the test runner consume the shared libraries. The [documentation index](docs/README.md) separates current contracts from historical evidence.
+
+HRandomPlus is distributed under `GPL-3.0-or-later`; see [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [dependency inventory](docs/current/DEPENDENCY_LICENSE_AUDIT.md). Third-party components retain their respective licenses. Windows includes the GPL memory-reader packages; their exact upstream source snapshot must accompany the corresponding release. See the [GPL source manifest](docs/current/GPL_SOURCE_MANIFEST.md).
+
+Each release set includes both binary ZIPs, `HRandomPlus-v1.0.0-source.zip`, `HRandomPlus-v1.0.0-gpl-source.zip`, `SHA256SUMS.txt` and `release-evidence.txt` from the same CI run. Publishing/tagging is a separate owner action after review and manual validation.

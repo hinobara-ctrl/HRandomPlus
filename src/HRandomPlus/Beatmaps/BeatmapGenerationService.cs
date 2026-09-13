@@ -57,7 +57,7 @@ public sealed class BeatmapGenerationService
 
         string outputPath = FindUniquePath(namingPath, suffix, outputDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-        File.WriteAllBytes(outputPath, generated);
+        outputPath = UniqueFile.Write(outputPath, stream => stream.Write(generated));
         return new GenerationResult(outputPath, output.Version, seed, selected.Count);
     }
 

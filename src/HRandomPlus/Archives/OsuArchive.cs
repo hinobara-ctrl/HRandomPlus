@@ -28,6 +28,7 @@ public sealed class OsuArchive
                                  IReadOnlyCollection<string> difficultyFilters, bool overwrite)
     {
         config.Validate();
+        ArchivePathSafety.Validate(inputPath, outputPath);
         inputPath = Path.GetFullPath(inputPath);
         outputPath = Path.GetFullPath(outputPath);
         if (!File.Exists(inputPath))
@@ -71,6 +72,7 @@ public sealed class OsuArchive
                 RandomizationResult result = engine.Randomize(document.HitObjects, document.Keys, seed);
                 BeatmapValidator.ValidatePlayableStructure(document.HitObjects, document.Keys, assigned: true);
                 document.ApplyObjects();
+                document.SetBeatmapId(0);
                 if (config.RenameDifficulty)
                     document.AppendVersionSuffix(config.DifficultySuffix);
 
@@ -289,6 +291,28 @@ public sealed class OsuArchive
             try { cleanupWarning?.Invoke($"No se pudo limpiar el directorio temporal '{temporaryPath}': {ex.Message}"); }
             catch { }
         }
+    }
+}
+
+public static class ArchivePathSafety
+{
+    public static void Validate(string inputPath, string outputPath, string? reportPath = null)
+    {
+        string input = Path.GetFullPath(inputPath);
+        string output = Path.GetFullPath(outputPath);
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        if (input.Equals(output, comparison))
+            throw new ArgumentException("The input archive and output archive must use different paths.");
+        if (reportPath is null) return;
+
+        string report = Path.GetFullPath(reportPath);
+        if (input.Equals(report, comparison))
+            throw new ArgumentException("The input archive and JSON report must use different paths.");
+        if (output.Equals(report, comparison))
+            throw new ArgumentException("The output archive and JSON report must use different paths.");
     }
 }
 

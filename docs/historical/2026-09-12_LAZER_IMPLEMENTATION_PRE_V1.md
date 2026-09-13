@@ -1,5 +1,5 @@
-<!-- document-status: current -->
-# osu!lazer integration
+<!-- document-status: historical -->
+# Implementación de osu!lazer (v0.2.x actual)
 
 ## Base upstream auditada
 
@@ -24,14 +24,13 @@ log de ejecución -> identidad del beatmap seleccionado -> metadatos client.real
 El log de ejecución representa el estado de selección en vivo, `client.realm` aporta metadatos y relaciones, y `files/` contiene los blobs físicos direccionados por contenido. Realm y `files/` son entradas de solo lectura para HRandomPlus.
 
 1. `LazerProcessDetector` distingue un proceso lazer nativo del directorio de ejecutable tradicional de stable que contiene `Songs`.
-2. `LazerStorageDiscovery` comprueba la ubicación predeterminada de la plataforma, sigue `storage.ini` y revisa raíces compatibles junto al ejecutable detectado para instalaciones portables. Un `FullPath` válido es autoritativo: no conserva simultáneamente como candidata una biblioteca Realm antigua que haya quedado en el directorio predeterminado.
-3. `LazerStorageSelector` asocia primero el ejecutable detectado con su raíz portable o con el `FullPath` de su `storage.ini`. Dentro de esa instalación usa el log más reciente. Un único almacenamiento global también es válido; varios almacenamientos sin asociación inequívoca producen espera segura en vez de mezclar ejecutable y biblioteca.
-4. `LazerRuntimeLogMonitor` busca hacia atrás al iniciar en bloques de 2 MiB, hasta encontrar una selección, llegar al principio o alcanzar 32 MiB; luego solo sigue los bytes anexados. Maneja truncado, reemplazo, nombres antiguos `runtime*.log` y nombres actuales `<timestamp>.runtime.log`.
-5. `RealmLazerBeatmapCatalog` abre `client.realm` con `IsReadOnly = true` e `IsDynamic = true`, usando el esquema guardado en disco en vez de asumir una versión de esquema de lazer; nunca inicia una transacción ni escribe datos Realm/almacenamiento.
-6. `LazerBeatmapResolver` valida el blob `.osu` seleccionado contra su SHA-256 y materializa una entrada temporal para el parser. Las materializaciones de más de siete días se eliminan oportunísticamente.
-7. El motor sin cambios de HRandomPlus produce la dificultad nueva.
-8. `LazerArchiveImporter` construye un `.osz` temporal con el `.osu` generado y los recursos originales del set. Rechaza la ausencia del blob de audio principal, conserva nombres ZIP distintos por mayúsculas y mantiene la protección contra traversal. La copia del archivo recibe IDs online desvinculados, mientras el output generado conservado y todos los archivos fuente de lazer permanecen intactos.
-9. El `.osz` se pasa al ejecutable lazer detectado. Si falla el lanzamiento, el ZIP terminado se conserva en Failed Imports junto al ejecutable de HRandomPlus; si no se puede mover, se informa su ruta temporal. Si falla la construcción, se elimina únicamente el parcial propio y se devuelve ImportArchivePath = null para permitir un respaldo portable nuevo; los archivos temporales enviados correctamente se eliminan tras un período de gracia y los obsoletos se limpian al iniciar.
+2. `LazerStorageDiscovery` comprueba la ubicación predeterminada de la plataforma, sigue `storage.ini` y revisa raíces compatibles junto al ejecutable detectado para instalaciones portables.
+3. `LazerRuntimeLogMonitor` busca hacia atrás al iniciar en bloques de 2 MiB, hasta encontrar una selección, llegar al principio o alcanzar 32 MiB; luego solo sigue los bytes anexados. Maneja truncado, reemplazo, nombres antiguos `runtime*.log` y nombres actuales `<timestamp>.runtime.log`. Si hay más de un almacenamiento, selecciona el que tenga el log más reciente.
+4. `RealmLazerBeatmapCatalog` abre `client.realm` con `IsReadOnly = true` e `IsDynamic = true`, usando el esquema guardado en disco en vez de asumir una versión de esquema de lazer; nunca inicia una transacción ni escribe datos Realm/almacenamiento.
+5. `LazerBeatmapResolver` valida el blob `.osu` seleccionado contra su SHA-256 y materializa una entrada temporal para el parser. Las materializaciones de más de siete días se eliminan oportunísticamente.
+6. El motor sin cambios de HRandomPlus produce la dificultad nueva.
+7. `LazerArchiveImporter` construye un `.osz` temporal con el `.osu` generado y los recursos originales del set. Rechaza la ausencia del blob de audio principal, conserva nombres ZIP distintos por mayúsculas y mantiene la protección contra traversal. La copia del archivo recibe IDs online desvinculados, mientras el output generado conservado y todos los archivos fuente de lazer permanecen intactos.
+8. El `.osz` se pasa al ejecutable lazer detectado. Si falla el lanzamiento se conserva en la carpeta de output de HRandomPlus para importarlo manualmente; los archivos temporales enviados correctamente se eliminan tras un período de gracia y los obsoletos se limpian al iniciar.
 
 Las únicas escrituras al filesystem durante la detección ocurren en el directorio temporal del sistema. `client.realm`, `files/`, `logs/`, `storage.ini` y el beatmap original son entradas de solo lectura.
 
@@ -54,10 +53,28 @@ Consulta `THIRD_PARTY_NOTICES.md` y `licenses/Apache-2.0.txt` para los avisos de
 - Una actualización del juego que cambie tablas/propiedades Realm, la distribución de blobs o el mensaje de log puede dejar sin resolver la detección automática. Debe fallar de forma cerrada; las integraciones de stable permanecen disponibles.
 - HRandomPlus no afirma que iniciar el importador garantice que lazer completó la importación. La UI informa que se envió el archivo. Verifica la nueva dificultad local en Song Select.
 - El almacenamiento real del cliente se excluye intencionalmente de los fixtures automatizados porque puede contener datos personales de cuenta/biblioteca.
-- Dos instalaciones sin una relación portable o `storage.ini` comprobable se consideran ambiguas. La detección queda en espera; no se elige por la fecha de un log ajeno.
 
-## Validation
+## Checklist smoke en máquina real
 
-The previous manual results are preserved in [the historical integration record](../historical/2026-09-12_LAZER_IMPLEMENTATION_PRE_V1.md). They do not certify a new candidate. Use [RELEASE_CHECKLIST.md](../../RELEASE_CHECKLIST.md) for current manual validation on Windows/Linux.
+Ejecuta la build v0.2.x correspondiente y registra la versión exacta de lazer.
 
-Automated regressions cover parsing, log rotation, storage discovery, executable/storage association, hashes, resolution ambiguity, source arbitration, source replacement during an in-flight read, resource names, detached IDs and import archives. A locked resource simulates failure during ZIP construction: no partial path is returned, and the external portable fallback can create a fresh archive once the resource becomes readable. Separate cases verify a completed archive is retained when launching returns false, throws, or its fallback destination cannot be created. Portable fallback creation also enforces entry, per-entry, expanded-size and beatmap-size limits and removes its own partial output on failure.
+### Windows x64
+
+- [x] Iniciar HRandomPlus sin ningún juego abierto; confirmar estado no disponible/en espera y selector manual responsivo.
+- [x] Abrir solo stable; confirmar su detección y una randomización sin cambios.
+- [x] Abrir solo lazer y entrar a Song Select; confirmar que el estado nombra explícitamente osu!lazer.
+- [x] Cambiar dificultad y set; confirmar que cada selección se actualiza sin reescaneo ni congelamiento.
+- [x] Randomizar; confirmar que lazer importa una dificultad local nueva, carga audio/fondo y mantiene intacto el original.
+- [x] Repetir la randomización; confirmar nombres únicos de dificultad/archivo.
+- [x] Cerrar/reabrir lazer y rotar/reiniciar sus logs; confirmar recuperación.
+- [x] Abrir stable y lazer a la vez; confirmar que gana la selección cambiada más recientemente con la etiqueta de fuente correcta.
+- [x] Confirmar que la selección manual exclusiva de stable conserva su comportamiento establecido.
+
+### Linux x64 nativo
+
+- [x] Repetir todas las comprobaciones de generación/importación exclusivas de lazer usando lazer nativo; no iniciar tosu ni Wine.
+- [x] Confirmar que se encuentra el almacenamiento predeterminado o personalizado mediante `storage.ini` sin `sudo`.
+- [x] Repetir por separado el checklist de regresión establecido para stable + osu-winello + tosu.
+- [x] Confirmar que cerrar HRandomPlus no deja procesos auxiliares y que los archivos/materializaciones temporales obsoletos se limpian finalmente.
+
+La cobertura automatizada valida variantes del parser, seguimiento/truncado, almacenamiento estándar/personalizado/portable, distribución de blobs y SHA-256, resolución GUID, rechazo de texto ambiguo, arbitraje de fuentes, etiquetado explícito de estado y creación de `.osz` desvinculado con recursos. Los playtests funcionales reales en Windows/Linux fueron aprobados. Desactivar artificialmente el lanzador de archivos de escritorio de lazer no se considera una condición de release porque no representa el flujo normal de importación.

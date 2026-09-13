@@ -75,10 +75,11 @@ public class ImportIntegrationTests
                 Assert.Equal(new[]
                 {
                     "--wine", "cmd", "/d", "/v:off", "/s", "/c",
-                    "copy /y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\""
+                    "copy /b /-y \"%HRANDOMPLUS_SOURCE%\" \"%HRANDOMPLUS_DESTINATION%\" <nul"
                 }, request.Arguments);
                 Assert.Equal("WINE|" + generated, request.Environment!["HRANDOMPLUS_SOURCE"]);
                 Assert.Equal("WINE|" + nativeDestination, request.Environment["HRANDOMPLUS_DESTINATION"]);
+                Assert.True(!File.Exists(nativeDestination));
                 File.Copy(generated, nativeDestination!, overwrite: false);
                 return new ProcessRunResult(true, false, 0, "1 file copied", "", null);
             });
@@ -92,8 +93,11 @@ public class ImportIntegrationTests
             Assert.Equal(3, call);
             Assert.True(File.Exists(result.PreservedOutputPath));
             Assert.True(!File.Exists(generated));
+            Assert.True(!File.Exists(result.PreservedOutputPath + ".hrandomplus-reservation"));
             Assert.Contains("sourceWine=WINE|", result.Diagnostics!);
             Assert.True(!result.Diagnostics!.Contains("Z:\\", StringComparison.Ordinal));
+            Assert.Equal("Import: WINE-SIDE COPY COMPLETED",
+                BeatmapImportStatus.Format("Test H-RANDOM+", 123, result).Split('\n')[0]);
         });
     }
 
@@ -126,6 +130,7 @@ public class ImportIntegrationTests
                 Assert.True(!commandLine.Contains(specialPath, StringComparison.Ordinal));
                 Assert.Equal($"Z:\\{specialPath}\\item1.osu", request.Environment!["HRANDOMPLUS_SOURCE"]);
                 Assert.Equal($"Z:\\{specialPath}\\item2.osu", request.Environment["HRANDOMPLUS_DESTINATION"]);
+                Assert.True(!File.Exists(destination));
                 File.Copy(generated, destination!, overwrite: false);
                 return new ProcessRunResult(true, false, 0, "copied", "", null);
             });
@@ -178,6 +183,41 @@ public class ImportIntegrationTests
             Assert.Contains("F5", result.Message);
             Assert.True(File.Exists(result.PreservedOutputPath));
             Assert.True(!File.Exists(generated));
+            Assert.Equal("Import: NATIVE FALLBACK - press F5 in osu!stable",
+                BeatmapImportStatus.Format("Test H-RANDOM+", 123, result).Split('\n')[0]);
+        });
+    }
+
+    [Fact]
+    public void WineSideCollisionAfterReservationNeverOverwritesTheForeignFile()
+    {
+        WithImportLayout((original, generated, fallback) =>
+        {
+            byte[] foreign = "foreign map"u8.ToArray();
+            string? contested = null;
+            int call = 0;
+            var runner = new FakeRunner((request, _) =>
+            {
+                call++;
+                if (call <= 2)
+                {
+                    if (call == 2) contested = request.Arguments[3];
+                    return new ProcessRunResult(true, false, 0, request.Arguments[3], "", null);
+                }
+
+                File.WriteAllBytes(contested!, foreign);
+                return new ProcessRunResult(true, false, 1, "0 files copied", "destination exists", null);
+            });
+
+            BeatmapImportResult result = new WineSideFileImporter(runner).ImportAsync(
+                new BeatmapImportRequest(original, generated, fallback)).GetAwaiter().GetResult();
+
+            Assert.True(result.Success);
+            Assert.True(result.FallbackUsed);
+            Assert.Equal(foreign, File.ReadAllBytes(contested!));
+            Assert.True(!Path.GetFullPath(result.PreservedOutputPath).Equals(Path.GetFullPath(contested!),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal));
+            Assert.True(!File.Exists(contested + ".hrandomplus-reservation"));
         });
     }
 

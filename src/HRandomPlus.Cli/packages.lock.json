@@ -931,7 +931,7 @@
       "hrandomplus.integration": {
         "type": "Project",
         "dependencies": {
-          "HRandomPlus.Core": "[0.2.1-playtest, )",
+          "HRandomPlus.Core": "[1.0.0, )",
           "Realm": "[20.1.0, )"
         }
       }

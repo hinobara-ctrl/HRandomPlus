@@ -251,7 +251,9 @@ public class ArchiveIntegrationTests
             string output = Path.Combine(root, "beatmap_HRandom.osz");
             byte[] audio = Enumerable.Range(0, 1024).Select(i => (byte)(i % 251)).ToArray();
             byte[] image = Encoding.UTF8.GetBytes("fake-image-data");
-            byte[] mania = TestBeatmaps.Mania(4, Enumerable.Range(0, 20).Select(i => TestBeatmaps.Note(4, 0, 1000 + i * 60)), "Insane");
+            byte[] mania = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(TestBeatmaps.Mania(4,
+                    Enumerable.Range(0, 20).Select(i => TestBeatmaps.Note(4, 0, 1000 + i * 60)), "Insane"))
+                .Replace("Version:Insane", "Version:Insane\nBeatmapID:123\nBeatmapSetID:456", StringComparison.Ordinal));
             byte[] standard = TestBeatmaps.Standard();
 
             using (ZipArchive archive = ZipFile.Open(input, ZipArchiveMode.Create))
@@ -275,6 +277,8 @@ public class ArchiveIntegrationTests
             ZipArchiveEntry generated = Assert.Single(result.Entries.Where(e => e.Name.EndsWith("H-RANDOM+.osu", StringComparison.Ordinal)));
             OsuBeatmapDocument parsed = OsuBeatmapDocument.Parse(generated.FullName, Read(result, generated.FullName));
             Assert.Equal("Insane H-RANDOM+", parsed.Version);
+            Assert.Equal(0, parsed.BeatmapId);
+            Assert.Equal(456, parsed.BeatmapSetId);
             Assert.Equal(mania.Length > 0 ? 20 : 0, parsed.HitObjects.Count);
         }
         finally

@@ -42,7 +42,6 @@ public sealed class LazerStorageDiscovery : ILazerStorageDiscovery
             string defaultRoot;
             try { defaultRoot = Path.GetFullPath(candidate); }
             catch { continue; }
-            TryAdd(defaultRoot);
 
             string storageIni = Path.Combine(defaultRoot, "storage.ini");
             if (File.Exists(storageIni))
@@ -54,23 +53,31 @@ public sealed class LazerStorageDiscovery : ILazerStorageDiscovery
                         .Where(parts => parts.Length == 2 && parts[0].Trim().Equals("FullPath", StringComparison.OrdinalIgnoreCase))
                         .Select(parts => parts[1].Trim())
                         .FirstOrDefault(value => value.Length > 0);
-                    if (configured is not null) TryAdd(configured);
+                    if (configured is not null && TryAdd(configured)) continue;
                 }
                 catch { }
             }
+            TryAdd(defaultRoot);
         }
         return discovered;
 
-        void TryAdd(string root)
+        bool TryAdd(string root)
         {
             try { root = Path.GetFullPath(root); }
-            catch { return; }
-            if (!seen.Add(root)) return;
+            catch { return false; }
+            if (!seen.Add(root)) return discovered.Any(storage =>
+                storage.RootPath.Equals(root, OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal));
             string realm = Path.Combine(root, "client.realm");
             string files = Path.Combine(root, "files");
             string logs = Path.Combine(root, "logs");
             if (File.Exists(realm) && Directory.Exists(files) && Directory.Exists(logs))
+            {
                 discovered.Add(new LazerStorage(root, realm, files, logs));
+                return true;
+            }
+            return false;
         }
     }
 }
