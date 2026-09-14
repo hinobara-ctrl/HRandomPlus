@@ -98,6 +98,59 @@ public class PendingClosureTests
     }
 
     [Fact]
+    public void StaleSuccessfulReadIsDiscardedAfterSourceReplacement()
+    {
+        var first = new ControlledSource();
+        var second = new ControlledSource();
+        var slot = new ReplaceableBeatmapSource(first);
+
+        Task<BeatmapSourceResult> read = slot.GetCurrentAsync();
+        first.Started.Task.GetAwaiter().GetResult();
+        slot.Replace(second);
+        first.Completion.SetResult(BeatmapSourceResult.Waiting("stale result"));
+        second.Started.Task.GetAwaiter().GetResult();
+        second.Completion.SetResult(BeatmapSourceResult.Waiting("current result"));
+
+        Assert.Equal("current result", read.GetAwaiter().GetResult().Status);
+        Assert.Equal(1, first.DisposeCalls);
+        Assert.Equal(0, second.DisposeCalls);
+        slot.Dispose();
+        Assert.Equal(1, second.DisposeCalls);
+    }
+
+    [Fact]
+    public void StaleReadExceptionIsDiscardedAfterSourceReplacement()
+    {
+        var first = new ControlledSource();
+        var second = new ControlledSource();
+        var slot = new ReplaceableBeatmapSource(first);
+
+        Task<BeatmapSourceResult> read = slot.GetCurrentAsync();
+        first.Started.Task.GetAwaiter().GetResult();
+        slot.Replace(second);
+        first.Completion.SetException(new InvalidOperationException("stale failure"));
+        second.Started.Task.GetAwaiter().GetResult();
+        second.Completion.SetResult(BeatmapSourceResult.Waiting("current result"));
+
+        Assert.Equal("current result", read.GetAwaiter().GetResult().Status);
+        Assert.Equal(1, first.DisposeCalls);
+        slot.Dispose();
+        Assert.Equal(1, second.DisposeCalls);
+    }
+
+    [Fact]
+    public void StableReaderWorkerCompletesBeforeItsTaskBackedOwnerIsDisposed()
+    {
+        var stopRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var owner = new TaskBackedOwner(stopRequested.Task);
+
+        StableReaderWorkerLifetime.StopThenDispose(stopRequested.SetResult, stopRequested.Task, owner);
+
+        Assert.True(stopRequested.Task.IsCompletedSuccessfully);
+        Assert.Equal(1, owner.DisposeCalls);
+    }
+
+    [Fact]
     public void RepeatedInflightSourceReplacementDisposesEverySourceExactlyOnce()
     {
         var initial = new DisposableSource();
@@ -276,5 +329,32 @@ public class PendingClosureTests
         public Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(BeatmapSourceResult.Waiting("ready"));
         public void Dispose() => DisposeCalls++;
+    }
+
+    private sealed class ControlledSource : IBeatmapSource, IDisposable
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<BeatmapSourceResult> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int DisposeCalls { get; private set; }
+
+        public async Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            return await Completion.Task.WaitAsync(cancellationToken);
+        }
+
+        public void Dispose() => DisposeCalls++;
+    }
+
+    private sealed class TaskBackedOwner(Task worker) : IDisposable
+    {
+        public int DisposeCalls { get; private set; }
+
+        public void Dispose()
+        {
+            worker.Dispose();
+            DisposeCalls++;
+        }
     }
 }

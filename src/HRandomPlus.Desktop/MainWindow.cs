@@ -23,6 +23,7 @@ public sealed class MainWindow : Window
     private readonly IProcessRunner processRunner = new SystemProcessRunner();
     private readonly DetectionStateTracker detectionState = new();
     private readonly CancellationTokenSource pollingCancellation = new();
+    private readonly Task pollingTask;
     private readonly List<RandomProfile> profiles = new();
     private readonly Dictionary<string, TextBox> editors = new();
 
@@ -80,14 +81,9 @@ public sealed class MainWindow : Window
         rangeBox.IsEnabled = !settings.WholeMap;
         tosuHost.Text = settings.TosuHost;
         tosuPort.Text = settings.TosuPort.ToString(CultureInfo.InvariantCulture);
-        Closed += (_, _) =>
-        {
-            pollingCancellation.Cancel();
-            source.Dispose();
-            SaveSettings();
-        };
         store.Log($"Avalonia application started on {Environment.OSVersion.Platform}");
-        _ = PollLoopAsync(pollingCancellation.Token);
+        pollingTask = PollLoopAsync(pollingCancellation.Token);
+        Closed += OnClosed;
     }
 
     private Control BuildUi()
@@ -308,10 +304,14 @@ public sealed class MainWindow : Window
                 if (randomizing) continue;
                 try
                 {
-                    BeatmapSourceResult result = await source.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+                    BeatmapSourceSnapshot snapshot = await source.GetCurrentSnapshotAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    BeatmapSourceResult result = snapshot.Result;
                     if (cancellationToken.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
+                        if (cancellationToken.IsCancellationRequested || !source.IsCurrent(snapshot.Generation))
+                            return;
                         UpdateSourceSpecificControls(result);
                         BeatmapDetectionUpdate update = detectionState.Observe(result);
                         if ((update.SelectionChanged || update.OriginChanged) && result.Selection is not null)
@@ -328,20 +328,25 @@ public sealed class MainWindow : Window
                             store.Log(result.IsAvailable ? "Detection source connected" : "Detection source disconnected");
                         }
                         if (update.StatusChanged)
+                        {
                             store.Log($"Detection status: {result.Status}");
+                            if (!string.IsNullOrWhiteSpace(result.TechnicalDetails))
+                                store.Log($"Detection technical details: {result.TechnicalDetails}");
+                        }
                     });
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
-                    string message = $"Unexpected polling error: {ex.Message}";
+                    string message = $"Unexpected polling error: {ex.GetType().Name}: {ex.Message}";
                     if (!cancellationToken.IsCancellationRequested)
                     {
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
+                            if (cancellationToken.IsCancellationRequested) return;
                             BeatmapDetectionUpdate update = detectionState.Observe(BeatmapSourceResult.Unavailable(message));
                             if (update.ConnectivityChanged) store.Log("Detection source disconnected");
-                            if (update.StatusChanged) store.Log(message);
+                            if (update.StatusChanged) store.Log($"{message}{Environment.NewLine}{ex}");
                             if (update.ShouldUpdateUi) SetStatus(BeatmapStatusFormatter.Format(update, currentPath is not null));
                         });
                     }
@@ -349,6 +354,29 @@ public sealed class MainWindow : Window
             }
         }
         catch (OperationCanceledException) { }
+    }
+
+    private async void OnClosed(object? sender, EventArgs args)
+    {
+        pollingCancellation.Cancel();
+        try
+        {
+            await pollingTask;
+        }
+        catch (Exception ex)
+        {
+            store.Log($"Polling shutdown failed: {ex}");
+        }
+        try
+        {
+            source.Dispose();
+        }
+        catch (Exception ex)
+        {
+            store.Log($"Detection source shutdown failed: {ex}");
+        }
+        pollingCancellation.Dispose();
+        SaveSettings();
     }
 
     private void UpdateSourceSpecificControls(BeatmapSourceResult result)

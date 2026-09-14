@@ -48,7 +48,7 @@ public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable, ILaz
                 : BeatmapSourceResult.Unavailable($"{stableResult.Status}; {lazerResult.Status}");
         }
 
-        return AppendFailures(selected, stableRead.Failure, lazerRead.Failure);
+        return AppendFailures(selected, stableRead, lazerRead);
     }
 
     private static async Task<SourceRead> ReadSourceAsync(IBeatmapSource source, string name,
@@ -56,7 +56,8 @@ public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable, ILaz
     {
         try
         {
-            return new SourceRead(await source.GetCurrentAsync(cancellationToken).ConfigureAwait(false), null);
+            BeatmapSourceResult result = await source.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+            return new SourceRead(result, null, result.TechnicalDetails);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -65,23 +66,28 @@ public sealed class ArbitratingBeatmapSource : IBeatmapSource, IDisposable, ILaz
         catch (Exception ex)
         {
             string failure = $"{name} source failed unexpectedly: {ex.GetType().Name}: {ex.Message}";
-            return new SourceRead(BeatmapSourceResult.Unavailable(failure), failure);
+            return new SourceRead(BeatmapSourceResult.Unavailable(failure), failure, ex.ToString());
         }
     }
 
-    private static BeatmapSourceResult AppendFailures(BeatmapSourceResult result, params string?[] failures)
+    private static BeatmapSourceResult AppendFailures(BeatmapSourceResult result, params SourceRead[] reads)
     {
+        string?[] failures = reads.Select(read => read.Failure).ToArray();
         string[] details = failures.Where(value => !string.IsNullOrWhiteSpace(value) &&
             !result.Status.Contains(value, StringComparison.Ordinal)).Cast<string>().Distinct().ToArray();
-        return details.Length == 0 ? result : result with
+        string[] technicalDetails = reads.Select(read => read.TechnicalDetails)
+            .Append(result.TechnicalDetails)
+            .Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().Distinct().ToArray();
+        return result with
         {
-            Status = string.IsNullOrWhiteSpace(result.Status)
+            Status = details.Length == 0 ? result.Status : string.IsNullOrWhiteSpace(result.Status)
                 ? string.Join("; ", details)
-                : $"{result.Status}; {string.Join("; ", details)}"
+                : $"{result.Status}; {string.Join("; ", details)}",
+            TechnicalDetails = technicalDetails.Length == 0 ? null : string.Join(Environment.NewLine, technicalDetails)
         };
     }
 
-    private sealed record SourceRead(BeatmapSourceResult Result, string? Failure);
+    private sealed record SourceRead(BeatmapSourceResult Result, string? Failure, string? TechnicalDetails);
 
     private static void UpdateActivity(BeatmapSourceResult result, ref string? identity, ref DateTimeOffset changed)
     {

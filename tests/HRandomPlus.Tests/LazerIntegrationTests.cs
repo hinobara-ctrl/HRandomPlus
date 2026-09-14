@@ -359,6 +359,8 @@ public class LazerIntegrationTests
         Assert.Equal(BeatmapDetectionSource.Lazer, result.DetectionSource);
         Assert.Contains("osu!stable source failed unexpectedly", result.Status);
         Assert.Contains("memory failed", result.Status);
+        Assert.Contains("System.IO.IOException: memory failed", result.TechnicalDetails!);
+        Assert.Contains(nameof(ThrowingSource), result.TechnicalDetails!);
     }
 
     [Fact]

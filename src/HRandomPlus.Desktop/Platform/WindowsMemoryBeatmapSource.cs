@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using HRandomPlus.Core;
 using HRandomPlus.Integration.Beatmaps;
@@ -17,7 +18,8 @@ internal static partial class PlatformSourceFactory
 internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
 {
     private readonly AppSettings settings;
-    private readonly StableReaderSession<StructuredOsuMemoryReader> readerSession = new();
+    private readonly StableReaderSession<StructuredOsuMemoryReader> readerSession =
+        new(DisposeMemoryReaderAfterWatcherStops);
     private DateTimeOffset readerCreatedAt;
     private string? processSelectionMessage;
 
@@ -72,7 +74,13 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
                 string.Empty,
                 detectionSource: BeatmapDetectionSource.WindowsMemory);
         }
-        catch (Exception ex) { return BeatmapSourceResult.Unavailable($"Memory detection unavailable: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            return BeatmapSourceResult.Unavailable($"Memory detection unavailable: {ex.Message}") with
+            {
+                TechnicalDetails = ex.ToString()
+            };
+        }
     }
 
     private StructuredOsuMemoryReader EnsureReader(StableProcessIdentity identity)
@@ -192,6 +200,26 @@ internal sealed class WindowsMemoryBeatmapSource : IBeatmapSource, IDisposable
     {
         ResetReader();
         readerSession.Dispose();
+    }
+
+    private static void DisposeMemoryReaderAfterWatcherStops(StructuredOsuMemoryReader reader)
+    {
+        object structuredReader = GetRequiredField(reader, "_memoryReader");
+        object manager = GetRequiredField(structuredReader, "_memoryReader");
+        var cancellation = (CancellationTokenSource)GetRequiredField(manager, "cts");
+        var watcher = (Task)GetRequiredField(manager, "ProcessWatcher");
+        StableReaderWorkerLifetime.StopThenDispose(cancellation.Cancel, watcher, reader);
+    }
+
+    private static object GetRequiredField(object owner, string fieldName)
+    {
+        for (Type? type = owner.GetType(); type is not null; type = type.BaseType)
+        {
+            FieldInfo? field = type.GetField(fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (field?.GetValue(owner) is object value) return value;
+        }
+        throw new MissingFieldException(owner.GetType().FullName, fieldName);
     }
 
     private sealed record SelectedStableProcess(Process Process, StableProcessIdentity Identity) : IDisposable

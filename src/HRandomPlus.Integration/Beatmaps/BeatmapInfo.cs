@@ -49,7 +49,8 @@ public sealed record BeatmapSourceResult(
     bool IsAvailable,
     BeatmapSelectionOrigin? SelectionOrigin = null,
     BeatmapDetectionSource? DetectionSource = null,
-    DateTimeOffset? ObservedAt = null)
+    DateTimeOffset? ObservedAt = null,
+    string? TechnicalDetails = null)
 {
     public bool Success => Selection is not null;
 

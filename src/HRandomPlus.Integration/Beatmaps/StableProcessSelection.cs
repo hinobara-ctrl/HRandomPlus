@@ -91,6 +91,13 @@ public static class StableProcessSelector
 
 public sealed class StableReaderSession<TReader> : IDisposable where TReader : class, IDisposable
 {
+    private readonly Action<TReader> disposeReader;
+
+    public StableReaderSession(Action<TReader>? disposeReader = null)
+    {
+        this.disposeReader = disposeReader ?? (reader => reader.Dispose());
+    }
+
     public StableProcessIdentity? Identity { get; private set; }
     public TReader? Reader { get; private set; }
 
@@ -106,10 +113,27 @@ public sealed class StableReaderSession<TReader> : IDisposable where TReader : c
 
     public void Invalidate()
     {
-        Reader?.Dispose();
+        TReader? reader = Reader;
         Reader = null;
         Identity = null;
+        if (reader is not null) disposeReader(reader);
     }
 
     public void Dispose() => Invalidate();
+}
+
+public static class StableReaderWorkerLifetime
+{
+    public static void StopThenDispose(Action requestStop, Task worker, IDisposable owner)
+    {
+        requestStop();
+        try
+        {
+            worker.GetAwaiter().GetResult();
+        }
+        finally
+        {
+            owner.Dispose();
+        }
+    }
 }

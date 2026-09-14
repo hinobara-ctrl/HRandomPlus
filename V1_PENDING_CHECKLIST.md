@@ -43,8 +43,8 @@ These contracts already have implementations and regressions in the worktree. Re
 - [x] `pwsh -File scripts/check-repo-consistency.ps1`
 - [x] Run focused filesystem/concurrency, CLI archive, importer, Guide/content, profile serialization and deterministic baseline tests.
 - [x] Execute the exact `/d /v:off /s /c copy /b /-y ... <nul` command through real Windows `cmd` with spaces, `%`, `&`, `!` and `^` in paths. It created a missing destination byte-for-byte; an existing foreign destination remained unchanged. Real Wine notification behavior is recorded separately in the Linux manual section.
-- [x] Publish Windows x64 and Linux x64 with the CI arguments. Final local ZIP inspection found 14 entries per archive, required notices, no PDB files, a Windows PE header, a Linux ELF header and Linux mode `100755`. SHA-256: Windows `D133A603614C7CC143DF1A1788A6AACF4D71107079C1B81317DE6650CB54ED9A`; Linux `5AE7C6AFDF5CFC4DFB6D2B9A52B62250E45CFB9F9D4B88732009990269A2BCCE`.
-- [x] Record exact passed, failed and skipped counts. Effective runner result on 2026-09-13 after Wine-create and recovery hardening: **387 passed, 0 failed, 0 skipped**. `dotnet test` exited 0 but does not discover the custom runner cases.
+- [x] Publish Windows x64 and Linux x64 locally with the CI arguments. Final v1.0.0 inspection found 20 Windows files, 14 Linux files, required notices, no PDB files, a Windows PE header, a Linux ELF header and Linux executable mode `0755`. SHA-256: Windows `bb8d5c0aef3150c81658f97bd28ce8b0913ade88ae7decba5157f74fd9951699`; Linux `01a63084ca1c9f3cfd1c22e72312816ae7fc7869472072e400a0e4a986482b67`. The matching working-tree source and pinned GPL source archives, checksums and local release evidence are under ignored `artifacts/final/v1.0.0/`; remote CI remains pending until owner review and push.
+- [x] Record exact passed, failed and skipped counts. Effective runner result on 2026-09-13 after the polling lifecycle correction: **390 passed, 0 failed, 0 skipped**. `dotnet test` exited 0 but does not discover the custom runner cases.
 - [x] Query the current NuGet vulnerability feed for Core, Integration, CLI and both Desktop targets. No known vulnerable package was reported; the local SDK requires querying the multitarget Desktop frameworks separately.
 
 ## Manual UI — Windows — READY
@@ -132,13 +132,13 @@ Manual validation accepted from the owner in this session on 2026-09-13. Exact L
 
 ## Manual recovery and ownership
 
-Status: **AUTOMATED EQUIVALENTS READY; MANUAL UI OBSERVATION STILL OPEN**. Native Windows control was explicitly authorized and attempted on 2026-09-13, but this session exposed browser control only and returned `cua.getApp is not a function`; no HRandomPlus window could be observed. The 387-case runner passed the exact injected filesystem/process equivalents: pre-existing `.osu`/`.osz` bytes across two concurrent processes in generation/native/portable/Wine modes; simultaneous Wine, stable-destination and Failed Imports failure with the generated `.osu` intact; completed-lazer temporary archive preservation; unreadable lazer/Winello resources and clean retry; excluded files and fallback boundaries; and 64 repeated source replacements during active reads with every source disposed exactly once. The boxes remain open because the checklist requires hands-on observation and they are not being closed from automated evidence.
+Status: **5 / 5 MANUAL PASS**. Tests 1–4 were manually approved by the owner on 2026-09-13. Test 5 was manually approved after the polling lifecycle correction: repeated settings application during A/B map changes produced no new lifecycle exception, stale UI update or process accumulation, and normal detection and generation continued afterward. The 390-case runner was the automated state before final packaging.
 
-- [ ] Pre-create colliding `.osu`/`.osz` files, then generate/import concurrently. Every pre-existing byte must remain unchanged.
-- [ ] Make Failed Imports unwritable. Confirm the `.osu` remains and a completed lazer ZIP reports its temporary path.
-- [ ] Make a required resource unreadable during ZIP construction. No partial may be offered; after restoring access, the outer fallback must be a fresh valid ZIP.
-- [ ] Put unrelated files in a stable set and exercise fallback limits. Excluded/generated content must not be repackaged and limit failure must leave no partial.
-- [ ] Hold polling in flight while repeatedly applying settings. Confirm no `ObjectDisposedException`, stale UI update or source/process leak.
+- [x] Pre-create colliding `.osu`/`.osz` files, then generate/import concurrently. Every pre-existing byte remained unchanged. Previously manually PASS.
+- [x] Make Failed Imports unwritable. The `.osu` remained and the completed lazer ZIP reported its temporary path. Previously manually PASS.
+- [x] Make a required resource unreadable during ZIP construction. No partial was offered; after restoring access, the outer fallback produced a fresh valid ZIP. Previously manually PASS.
+- [x] Put unrelated files in a stable set and exercise fallback limits. Excluded/generated content was not repackaged and limit failure left no partial. Previously manually PASS.
+- [x] Hold polling in flight while repeatedly applying settings. No `ObjectDisposedException`, lifecycle `InvalidOperationException`, unexpected polling error, stale UI update or source/process leak was observed. Detection converged to the selected map and generation continued normally. Manually PASS after the polling fix.
 
 ## Repository and diff review
 

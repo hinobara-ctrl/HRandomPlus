@@ -11,6 +11,7 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
     private readonly Dictionary<IBeatmapSource, int> activeReads = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IBeatmapSource> retired = new(ReferenceEqualityComparer.Instance);
     private IBeatmapSource current;
+    private long generation;
     private bool disposed;
 
     public ReplaceableBeatmapSource(IBeatmapSource initial)
@@ -18,15 +19,48 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
 
     public async Task<BeatmapSourceResult> GetCurrentAsync(CancellationToken cancellationToken = default)
     {
-        IBeatmapSource acquired = Acquire();
-        try
+        return (await GetCurrentSnapshotAsync(cancellationToken).ConfigureAwait(false)).Result;
+    }
+
+    public async Task<BeatmapSourceSnapshot> GetCurrentSnapshotAsync(
+        CancellationToken cancellationToken = default)
+    {
+        while (true)
         {
-            return await acquired.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            SourceLease lease = Acquire();
+            BeatmapSourceResult? result = null;
+            Exception? failure = null;
+            bool currentAfterRead;
+            try
+            {
+                result = await lease.Source.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+            finally
+            {
+                currentAfterRead = IsCurrent(lease);
+                Release(lease.Source);
+            }
+
+            if (!currentAfterRead)
+                continue;
+            if (failure is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+            return new BeatmapSourceSnapshot(result!, lease.Generation);
         }
-        finally
-        {
-            Release(acquired);
-        }
+    }
+
+    public bool IsCurrent(long snapshotGeneration)
+    {
+        lock (sync) return !disposed && generation == snapshotGeneration;
     }
 
     public void Replace(IBeatmapSource replacement)
@@ -39,6 +73,7 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
             if (ReferenceEquals(current, replacement)) return;
             IBeatmapSource previous = current;
             current = replacement;
+            generation++;
             if (activeReads.ContainsKey(previous)) retired.Add(previous);
             else disposeNow = previous;
         }
@@ -47,15 +82,15 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
 
     public void InvalidateLazerResolution()
     {
-        IBeatmapSource acquired = Acquire();
+        SourceLease lease = Acquire();
         try
         {
-            if (acquired is ILazerResolutionInvalidator invalidator)
+            if (lease.Source is ILazerResolutionInvalidator invalidator)
                 invalidator.InvalidateLazerResolution();
         }
         finally
         {
-            Release(acquired);
+            Release(lease.Source);
         }
     }
 
@@ -72,15 +107,21 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
         DisposeSource(disposeNow);
     }
 
-    private IBeatmapSource Acquire()
+    private SourceLease Acquire()
     {
         lock (sync)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             activeReads.TryGetValue(current, out int count);
             activeReads[current] = count + 1;
-            return current;
+            return new SourceLease(current, generation);
         }
+    }
+
+    private bool IsCurrent(SourceLease lease)
+    {
+        lock (sync)
+            return !disposed && generation == lease.Generation && ReferenceEquals(current, lease.Source);
     }
 
     private void Release(IBeatmapSource acquired)
@@ -102,7 +143,10 @@ public sealed class ReplaceableBeatmapSource : IBeatmapSource, ILazerResolutionI
     private static void DisposeSource(IBeatmapSource? source)
     {
         if (source is not IDisposable disposable) return;
-        try { disposable.Dispose(); }
-        catch { }
+        disposable.Dispose();
     }
+
+    private sealed record SourceLease(IBeatmapSource Source, long Generation);
 }
+
+public sealed record BeatmapSourceSnapshot(BeatmapSourceResult Result, long Generation);
