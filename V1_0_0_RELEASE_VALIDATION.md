@@ -153,14 +153,14 @@ Status: **5 / 5 MANUAL PASS**. Tests 1–4 were manually approved by the owner o
 
 Remote preflight on 2026-09-13 succeeded: `origin` was reachable, GitHub authentication had repository/workflow scope, and the upload dry run was accepted without creating a branch. The validated code candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008` was subsequently reviewed and pushed to `main`. This documentation-only cleanup remains local and requires owner review and push so GitHub Actions can validate its exact commit SHA.
 
-- [ ] Owner reviews and pushes the final documentation-only commit.
-- [ ] Verify Windows/Ubuntu tests, both publishes and source-artifact jobs in the same Actions run.
-- [ ] Confirm release-candidate installed the same SDK channel before recording `dotnet --version`.
-- [ ] Download both binary ZIPs, HRandomPlus source, GPL source, `SHA256SUMS.txt` and `release-evidence.txt`.
-- [ ] Verify every checksum and inspect version, commit SHA, SDK and upstream job result in evidence.
-- [ ] Confirm source ZIP matches the reviewed commit and GPL source matches its pinned manifest/checksum.
-- [ ] Record manual smoke evidence separately; CI evidence does not replace it.
-- [ ] Create tag `v1.0.0` and publish the GitHub Release with all required assets only after the exact final SHA and its candidate pass verification.
+- [x] Owner reviews and pushes the final documentation-only commit.
+- [x] Verify Windows/Ubuntu tests, both publishes and source-artifact jobs in the same Actions run.
+- [x] Confirm release-candidate installed the same SDK channel before recording `dotnet --version`.
+- [x] Download both binary ZIPs, HRandomPlus source, GPL source, `SHA256SUMS.txt` and `release-evidence.txt`.
+- [x] Verify every checksum and inspect version, commit SHA, SDK and upstream job result in evidence.
+- [x] Confirm source ZIP matches the reviewed commit and GPL source matches its pinned manifest/checksum.
+- [x] Record manual smoke evidence separately; CI evidence does not replace it.
+- [x] Create tag `v1.0.0` and publish the GitHub Release with all required assets only after the exact final SHA and its candidate pass verification.
 
 ## POST-v1.0.0 / maintenance decisions
 
@@ -179,8 +179,8 @@ Remote preflight on 2026-09-13 succeeded: `origin` was reachable, GitHub authent
 - [x] Current README, Guide and docs match implemented behavior; visual rendering remains a manual check.
 - [x] Git has no sensitive/generated artifact and `git diff --check` passes.
 - [x] The owner reviewed and pushed the validated code candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008`.
-- [ ] The owner reviews and pushes this final documentation-only change.
-- [ ] GitHub Actions passes for that exact final commit SHA and its release-candidate, checksums and evidence are verified.
-- [ ] Tag `v1.0.0` and the GitHub Release are created from that verified SHA.
+- [x] The owner reviews and pushes this final documentation-only change.
+- [x] GitHub Actions passes for that exact final commit SHA and its release-candidate, checksums and evidence are verified.
+- [x] Tag `v1.0.0` and the GitHub Release are created from that verified SHA.
 
 The implementation and manual validation are complete. After the remaining documentation review, exact-SHA CI and artifact checks pass, the owner may create tag `v1.0.0` and publish the GitHub Release.
