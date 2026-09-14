@@ -12,4 +12,4 @@ Para comenzar, consulta el [desarrollo y proceso de release](current/DEVELOPMENT
 
 El cierre anterior está registrado en [Cierre y ajustes finales posteriores](historical/2026-09-02_CIERRE_Y_AJUSTES_FINALES.md).
 
-For the current candidate, complete [V1_PENDING_CHECKLIST.md](../V1_PENDING_CHECKLIST.md) before following the shorter [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md). The earlier [playtest checklist](historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md) and pre-v1 profile, integration and dependency records remain historical evidence.
+The completed v1.0.0 validation evidence is recorded in [V1_0_0_RELEASE_VALIDATION.md](../V1_0_0_RELEASE_VALIDATION.md). Use the shorter [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md) for the remaining final-CI, tag and Release steps. The earlier [playtest checklist](historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md) and pre-v1 profile, integration and dependency records remain historical evidence.

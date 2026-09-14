@@ -42,7 +42,7 @@ Require ($readme -match [regex]::Escape("HRandomPlus-v$version-linux-x64-framewo
 Require ($readme -match 'require \*\*\.NET Runtime 8 x64\*\*') 'README debe describir los binarios vigentes como framework-dependent.'
 Require ($readme.Contains('Guide → Parameters')) 'README debe dirigir al usuario a Guide → Parameters.'
 Require ($readme.Contains('(RELEASE_CHECKLIST.md)')) 'README debe enlazar el checklist de release.'
-Require ($readme.Contains('(V1_PENDING_CHECKLIST.md)')) 'README debe enlazar el checklist pendiente de v1.'
+Require ($readme.Contains('(V1_0_0_RELEASE_VALIDATION.md)')) 'README debe enlazar la validación de release de v1.0.0.'
 
 $notices = Get-Content -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Raw
 Require ($notices -notmatch 'HRandomPlus-v\d+\.\d+\.\d+') 'Los notices deben usar nombres de artefactos neutrales a la versión.'
@@ -62,9 +62,9 @@ foreach ($editor in [regex]::Matches($mainWindow, 'AddEditor\(parameters, "([^"]
 $documents = Get-ChildItem -LiteralPath (Join-Path $root 'docs') -Filter '*.md' -File -Recurse
 $currentDocuments = @((Get-Item -LiteralPath (Join-Path $root 'README.md')), (Get-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md')))
 if (Test-Path -LiteralPath $checklistPath) { $currentDocuments += Get-Item -LiteralPath $checklistPath }
-$pendingChecklistPath = Join-Path $root 'V1_PENDING_CHECKLIST.md'
-Require (Test-Path -LiteralPath $pendingChecklistPath -PathType Leaf) 'Falta V1_PENDING_CHECKLIST.md.'
-if (Test-Path -LiteralPath $pendingChecklistPath) { $currentDocuments += Get-Item -LiteralPath $pendingChecklistPath }
+$validationChecklistPath = Join-Path $root 'V1_0_0_RELEASE_VALIDATION.md'
+Require (Test-Path -LiteralPath $validationChecklistPath -PathType Leaf) 'Falta V1_0_0_RELEASE_VALIDATION.md.'
+if (Test-Path -LiteralPath $validationChecklistPath) { $currentDocuments += Get-Item -LiteralPath $validationChecklistPath }
 foreach ($document in $documents) {
     $content = Get-Content -LiteralPath $document.FullName -Raw
     $header = ($content -split "`r?`n" | Select-Object -First 5) -join "`n"

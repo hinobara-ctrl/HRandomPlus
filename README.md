@@ -99,7 +99,7 @@ pwsh -File scripts/check-repo-consistency.ps1
 
 The tests use a custom executable runner. `dotnet test` does not execute these cases; the `dotnet run` command is required and is what CI uses on Windows and Ubuntu. SDK 8 can build locally but may warn about Avalonia analyzers requiring newer Roslyn; use SDK 10 for CI parity.
 
-The workflow contains the authoritative publish commands for `net8.0-windows/win-x64` and `net8.0/linux-x64`. See [development and release](docs/current/DEVELOPMENT_AND_RELEASE.md), the [pending v1.0.0 checklist](V1_PENDING_CHECKLIST.md) and the [release checklist](RELEASE_CHECKLIST.md).
+The workflow contains the authoritative publish commands for `net8.0-windows/win-x64` and `net8.0/linux-x64`. See [development and release](docs/current/DEVELOPMENT_AND_RELEASE.md), the [v1.0.0 release validation](V1_0_0_RELEASE_VALIDATION.md) and the [release checklist](RELEASE_CHECKLIST.md).
 
 The optional source-built CLI supports `.osz` processing and read-only tosu diagnostics:
 

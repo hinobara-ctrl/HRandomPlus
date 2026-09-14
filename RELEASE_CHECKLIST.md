@@ -1,9 +1,9 @@
 <!-- document-status: current -->
 # Release checklist
 
-This is a procedure, not evidence of completed tests. All boxes start unchecked for the candidate under review. Historical playtests are preserved in [the previous checklist](docs/historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md); they do not certify this build.
+This is the remaining release procedure, not the primary evidence of completed tests. Checked boxes reflect the validated v1.0.0 code candidate; unchecked boxes are the final CI and publishing operations. Historical playtests are preserved in [the previous checklist](docs/historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md); they do not certify this build.
 
-Implementation blockers, before-v1 work and the expanded platform/CLI/manual matrix are tracked in [V1_PENDING_CHECKLIST.md](V1_PENDING_CHECKLIST.md). Complete that list before using this shorter release procedure.
+Completed implementation, platform, CLI and manual validation evidence is recorded in [V1_0_0_RELEASE_VALIDATION.md](V1_0_0_RELEASE_VALIDATION.md). Use this shorter procedure for the remaining final-CI, tag and Release steps.
 
 ## Local code and packaging checks
 
@@ -17,7 +17,7 @@ Implementation blockers, before-v1 work and the expanded platform/CLI/manual mat
 
 Record the commit, OS, game version and observed result separately. Automated tests are not manual evidence.
 
-The owner accepted the corresponding concrete manual sections in `V1_PENDING_CHECKLIST.md` on 2026-09-13. Exact OS and game versions were not supplied and are not invented here.
+The owner accepted the corresponding concrete manual sections in `V1_0_0_RELEASE_VALIDATION.md` on 2026-09-13. Exact OS and game versions were not supplied and are not invented here.
 
 - [x] Open Guide beside Active parameters. Visit all four tabs, scroll every parameter, resize, check dark-theme readability, navigate with Tab/arrow keys, and close with Escape/Close. Confirm reopening works and the main window layout is unchanged apart from the button.
 - [x] Select a manual mania `.osu` with audio/resources. Generate H-Random, S-Random and Custom variants; load them in osu! and confirm timing/LN lengths and original contents remain unchanged.
@@ -32,11 +32,11 @@ The owner accepted the corresponding concrete manual sections in `V1_PENDING_CHE
 
 ZIP-construction and launcher-failure injection are covered by automated regressions. Do not mark a manual checkbox solely because those regressions pass. If manually injecting these failures, use disposable data and record the method; do not corrupt the real lazer library.
 
-## After owner review and manual push
+## After owner review and final documentation push
 
 - [ ] Verify Windows and Ubuntu test jobs and both publish jobs in the same Actions run.
 - [ ] Download the release candidate and verify every archive with `SHA256SUMS.txt`.
 - [ ] Inspect `release-evidence.txt`: version, commit, SDK and successful upstream jobs must describe that run.
 - [ ] Verify the source archive contains the exact committed changes and the GPL archive matches the pinned upstream checksum.
-- [ ] Resolve all release blockers and record manual test results before creating a tag/Release.
+- [x] Confirm release blockers are resolved and manual test results are recorded in the v1.0.0 validation record.
 - [ ] Publish binaries, corresponding sources, checksums and evidence together. A version change alone does not publish a release.
