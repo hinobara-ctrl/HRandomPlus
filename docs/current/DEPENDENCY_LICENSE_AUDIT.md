@@ -13,7 +13,7 @@ The root LICENSE and THIRD_PARTY_NOTICES accompany both packages. Applicable thi
 
 ## Corresponding sources and verification
 
-`Directory.Build.props` defines the candidate version. CI creates `HRandomPlus-v<version>-source.zip` from the exact build commit and `HRandomPlus-v<version>-gpl-source.zip` from the pinned upstream snapshot recorded in [GPL_SOURCE_MANIFEST.md](GPL_SOURCE_MANIFEST.md). The snapshot checksum is verified before packaging. All four archives are listed in SHA256SUMS.txt and release-evidence.txt from the same workflow run.
+`Directory.Build.props` defines the canonical project version. CI creates `HRandomPlus-v<version>-source.zip` from the exact build commit and `HRandomPlus-v<version>-gpl-source.zip` from the pinned upstream snapshot recorded in [GPL_SOURCE_MANIFEST.md](GPL_SOURCE_MANIFEST.md). The snapshot checksum is verified before packaging. All four archives are listed in SHA256SUMS.txt and release-evidence.txt from the same workflow run.
 
 Inspect both published package contents and their notices before release; source packages must accompany binaries. A previous audit is not evidence that a new archive has been inspected.
 

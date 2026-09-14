@@ -36,7 +36,14 @@ Require ($desktopProject -match '<TargetFrameworks>net8\.0;net8\.0-windows</Targ
 Require ($desktopProject -match "TargetFramework.*net8\.0-windows") 'OsuMemoryDataProvider debe permanecer condicionado al target Windows.'
 
 $readme = Get-Content -LiteralPath (Join-Path $root 'README.md') -Raw
-Require ($readme -match [regex]::Escape("Code candidate: **v$version**")) 'README no coincide con la versión canónica.'
+$isPrerelease = $version.Contains('-')
+if ($isPrerelease) {
+    Require ($readme -match [regex]::Escape("Code candidate: **v$version**")) 'README no identifica la versión preliminar canónica.'
+}
+else {
+    Require ($readme -match [regex]::Escape("Current stable release: **v$version**")) 'README no identifica la versión estable canónica.'
+    Require ($readme -notmatch '(?i)Code candidate:|may not yet have a Release|expected candidate binary') 'README conserva lenguaje de candidato para una versión estable.'
+}
 Require ($readme -match [regex]::Escape("HRandomPlus-v$version-windows-x64-framework-dependent.zip")) 'README no contiene el nombre canónico del ZIP Windows.'
 Require ($readme -match [regex]::Escape("HRandomPlus-v$version-linux-x64-framework-dependent.zip")) 'README no contiene el nombre canónico del ZIP Linux.'
 Require ($readme -match 'require \*\*\.NET Runtime 8 x64\*\*') 'README debe describir los binarios vigentes como framework-dependent.'
@@ -65,6 +72,13 @@ if (Test-Path -LiteralPath $checklistPath) { $currentDocuments += Get-Item -Lite
 $validationChecklistPath = Join-Path $root 'V1_0_0_RELEASE_VALIDATION.md'
 Require (Test-Path -LiteralPath $validationChecklistPath -PathType Leaf) 'Falta V1_0_0_RELEASE_VALIDATION.md.'
 if (Test-Path -LiteralPath $validationChecklistPath) { $currentDocuments += Get-Item -LiteralPath $validationChecklistPath }
+if (-not $isPrerelease) {
+    $staleStableReleasePattern = '(?i)remaining final CI|remains pending|remains local|awaiting owner review|may create (?:tag|(?:the )?GitHub Release)'
+    foreach ($releaseStatusPath in @('README.md', 'V1_0_0_RELEASE_VALIDATION.md', 'docs/README.md')) {
+        $releaseStatus = Get-Content -LiteralPath (Join-Path $root $releaseStatusPath) -Raw
+        Require ($releaseStatus -notmatch $staleStableReleasePattern) "$releaseStatusPath conserva un estado de release inconcluso para una versión estable."
+    }
+}
 foreach ($document in $documents) {
     $content = Get-Content -LiteralPath $document.FullName -Raw
     $header = ($content -split "`r?`n" | Select-Object -First 5) -join "`n"

@@ -1,9 +1,9 @@
 <!-- document-status: current -->
 # Manifiesto de fuentes correspondientes GPL
 
-Candidato de release: `v1.0.0`
+Release: `v1.0.0`
 
-Este manifiesto vincula todo el código cubierto por GPL del candidato Windows x64 con sus fuentes correspondientes.
+Este manifiesto vincula todo el código cubierto por GPL del binario Windows x64 de v1.0.0 con sus fuentes correspondientes.
 
 ## Fuentes de HRandomPlus
 
@@ -32,4 +32,4 @@ Ambos tags anotados resuelven al mismo commit declarado en los dos manifiestos N
 
 ## Conjunto de distribución
 
-`HRandomPlus-v1.0.0-windows-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-linux-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-source.zip`, `HRandomPlus-v1.0.0-gpl-source.zip` y `SHA256SUMS.txt` forman un único conjunto de release. No publiques el binario de Windows sin ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución candidata.
+`HRandomPlus-v1.0.0-windows-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-linux-x64-framework-dependent.zip`, `HRandomPlus-v1.0.0-source.zip`, `HRandomPlus-v1.0.0-gpl-source.zip` y `SHA256SUMS.txt` forman un único conjunto de release. El binario de Windows se distribuye con ambos archivos de fuentes correspondientes y el manifiesto de checksums de la misma ejecución verificada del release.

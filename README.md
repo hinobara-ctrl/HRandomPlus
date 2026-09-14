@@ -2,7 +2,7 @@
 
 HRandomPlus is a desktop application for generating H-Random, S-Random and Custom variants of osu!mania beatmaps. It reassigns notes between columns using the selected configuration and creates a separate difficulty without modifying the original beatmap.
 
-Code candidate: **v1.0.0**. This version number does not mean a tag or GitHub Release has been published.
+Current stable release: **v1.0.0**. Download it from the published [GitHub Release](https://github.com/hinobara-ctrl/HRandomPlus/releases/tag/v1.0.0).
 
 ## What it changes and preserves
 
@@ -32,11 +32,11 @@ macOS and other architectures are not packaged by the current workflow. Changes 
 
 The distributed packages require **.NET Runtime 8 x64**. They are framework-dependent; the runtime is installed separately. Building from source uses the **.NET SDK 10** in CI and targets .NET 8.
 
-1. Open the repository's [Releases page](https://github.com/hinobara-ctrl/HRandomPlus/releases) and choose an actually published version. The code candidate described here may not yet have a Release.
+1. Open the repository's [Releases page](https://github.com/hinobara-ctrl/HRandomPlus/releases) and choose a published version.
 2. Download the package matching your system and extract the entire ZIP into a writable directory, keeping its native libraries and notices together.
 3. Run `HRandomPlus.exe` on Windows or `HRandomPlus` on Linux. On Linux, use `chmod +x HRandomPlus` if extraction did not retain the executable permission.
 
-The expected candidate binary names are:
+The v1.0.0 release binary names are:
 
 - `HRandomPlus-v1.0.0-windows-x64-framework-dependent.zip`
 - `HRandomPlus-v1.0.0-linux-x64-framework-dependent.zip`

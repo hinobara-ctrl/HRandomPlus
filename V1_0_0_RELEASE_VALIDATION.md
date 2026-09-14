@@ -1,9 +1,21 @@
 <!-- document-status: current -->
 # v1.0.0 release validation
 
-This is the completed implementation and manual validation record for the v1.0.0 code candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008`. The owner reviewed and pushed that candidate to `main`. Unchecked items are limited to the final CI and release operations for the documentation-only cleanup that follows it; they are not failed tests. Manual results below remain direct owner evidence and are not inferred from automated coverage.
+This is the closed validation and release record for HRandomPlus v1.0.0. Manual results below remain direct owner evidence and are not inferred from automated coverage.
 
-Previous v0.2.1 playtest results remain in [the historical checklist](docs/historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md). They do not certify this candidate.
+| Release fact | Recorded result |
+|---|---|
+| Functional candidate | `f6ff0a4178bd13fe861631f8283f485b7df43008` |
+| Final released SHA | `8e077733ab6bab5fb262249d2742c03d9436787c` |
+| Tag | `v1.0.0` |
+| GitHub Release | Published successfully |
+| Final GitHub Actions | PASS |
+| Release candidate | Downloaded and inspected |
+| `SHA256SUMS.txt` | Verified |
+| `release-evidence.txt` | Verified |
+| Manual validation | PASS |
+
+Previous v0.2.1 playtest results remain in [the historical checklist](docs/historical/2026-09-02_PLAYTEST_CHECKLIST_v0.2.1.md). They are not v1.0.0 release evidence.
 
 ## Implementation blockers — COMPLETE
 
@@ -43,7 +55,7 @@ These contracts have implementations and regressions in the validated code candi
 - [x] `pwsh -File scripts/check-repo-consistency.ps1`
 - [x] Run focused filesystem/concurrency, CLI archive, importer, Guide/content, profile serialization and deterministic baseline tests.
 - [x] Execute the exact `/d /v:off /s /c copy /b /-y ... <nul` command through real Windows `cmd` with spaces, `%`, `&`, `!` and `^` in paths. It created a missing destination byte-for-byte; an existing foreign destination remained unchanged. Real Wine notification behavior is recorded separately in the Linux manual section.
-- [x] Publish Windows x64 and Linux x64 locally with the CI arguments. Final v1.0.0 inspection found 20 Windows files, 14 Linux files, required notices, no PDB files, a Windows PE header, a Linux ELF header and Linux executable mode `0755`. SHA-256: Windows `bb8d5c0aef3150c81658f97bd28ce8b0913ade88ae7decba5157f74fd9951699`; Linux `01a63084ca1c9f3cfd1c22e72312816ae7fc7869472072e400a0e4a986482b67`. The matching source and pinned GPL source archives, checksums and local release evidence were inspected under the ignored `artifacts/final/v1.0.0/` validation directory. The final remote CI evidence remains pending for the exact documentation-cleanup SHA.
+- [x] Publish Windows x64 and Linux x64 locally with the CI arguments. Final local v1.0.0 inspection found 20 Windows files, 14 Linux files, required notices, no PDB files, a Windows PE header, a Linux ELF header and Linux executable mode `0755`. SHA-256: Windows `bb8d5c0aef3150c81658f97bd28ce8b0913ade88ae7decba5157f74fd9951699`; Linux `01a63084ca1c9f3cfd1c22e72312816ae7fc7869472072e400a0e4a986482b67`. The final GitHub Actions release candidate for released SHA `8e077733ab6bab5fb262249d2742c03d9436787c` was subsequently downloaded and verified.
 - [x] Record exact passed, failed and skipped counts. Effective runner result on 2026-09-13 after the polling lifecycle correction: **390 passed, 0 failed, 0 skipped**. `dotnet test` exited 0 but does not discover the custom runner cases.
 - [x] Query the current NuGet vulnerability feed for Core, Integration, CLI and both Desktop targets. No known vulnerable package was reported; the local SDK requires querying the multitarget Desktop frameworks separately.
 
@@ -145,22 +157,22 @@ Status: **5 / 5 MANUAL PASS**. Tests 1–4 were manually approved by the owner o
 - [x] Run `git status`, `git ls-files`, `git diff --check`, `git diff --stat` and review the full `git diff`.
 - [x] Confirm bin/obj/publish/artifacts/TestResults/coverage/logs/dumps/Failed Imports/generated maps and profiles/personal config are untracked or ignored.
 - [x] Search tracked files for credentials, private keys, tokens, personal email/user paths, logs and local configuration. No credential-like match was found; home-path matches are deliberate redaction fixtures.
-- [x] Confirm lockfiles change only with dependencies and Guide/UI grouping adds no dependency. The test lockfile records only the new CLI project reference and candidate version alignment.
+- [x] Confirm lockfiles change only with dependencies and Guide/UI grouping adds no dependency. The test lockfile records only the new CLI project reference and v1.0.0 version alignment.
 - [x] Check accidental formatting, line endings, debug output, temporary TODOs, placeholders, dead code and assistant/code-generation references. The only name match is fixture metadata in `TestBeatmaps.cs`.
 - [x] Confirm current docs have no obsolete version/artifact/button claims. Historical documents may retain original statements.
 
-## Remaining final CI and release steps
+## Final CI and release verification — COMPLETE
 
-Remote preflight on 2026-09-13 succeeded: `origin` was reachable, GitHub authentication had repository/workflow scope, and the upload dry run was accepted without creating a branch. The validated code candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008` was subsequently reviewed and pushed to `main`. This documentation-only cleanup remains local and requires owner review and push so GitHub Actions can validate its exact commit SHA.
+Remote preflight on 2026-09-13 succeeded. The functional candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008` was reviewed and pushed, and the documentation cleanup produced final released SHA `8e077733ab6bab5fb262249d2742c03d9436787c`. GitHub Actions passed for that SHA, its release candidate and evidence were verified, and tag `v1.0.0` and the GitHub Release were published from it.
 
-- [x] Owner reviews and pushes the final documentation-only commit.
-- [x] Verify Windows/Ubuntu tests, both publishes and source-artifact jobs in the same Actions run.
-- [x] Confirm release-candidate installed the same SDK channel before recording `dotnet --version`.
-- [x] Download both binary ZIPs, HRandomPlus source, GPL source, `SHA256SUMS.txt` and `release-evidence.txt`.
-- [x] Verify every checksum and inspect version, commit SHA, SDK and upstream job result in evidence.
-- [x] Confirm source ZIP matches the reviewed commit and GPL source matches its pinned manifest/checksum.
-- [x] Record manual smoke evidence separately; CI evidence does not replace it.
-- [x] Create tag `v1.0.0` and publish the GitHub Release with all required assets only after the exact final SHA and its candidate pass verification.
+- [x] The owner reviewed and pushed the final documentation-only commit.
+- [x] Windows/Ubuntu tests, both publishes and the source-artifact job passed in the same Actions run.
+- [x] The release-candidate job installed the same SDK channel before recording `dotnet --version`.
+- [x] Both binary ZIPs, HRandomPlus source, GPL source, `SHA256SUMS.txt` and `release-evidence.txt` were downloaded and inspected.
+- [x] Every checksum and the recorded version, commit SHA, SDK and upstream job result were verified.
+- [x] The source ZIP matched the reviewed commit and GPL source matched its pinned manifest/checksum.
+- [x] Manual smoke evidence was recorded separately from CI evidence.
+- [x] Tag `v1.0.0` and the GitHub Release were published with all required assets from the verified final SHA.
 
 ## POST-v1.0.0 / maintenance decisions
 
@@ -179,8 +191,8 @@ Remote preflight on 2026-09-13 succeeded: `origin` was reachable, GitHub authent
 - [x] Current README, Guide and docs match implemented behavior; visual rendering remains a manual check.
 - [x] Git has no sensitive/generated artifact and `git diff --check` passes.
 - [x] The owner reviewed and pushed the validated code candidate at `f6ff0a4178bd13fe861631f8283f485b7df43008`.
-- [x] The owner reviews and pushes this final documentation-only change.
-- [x] GitHub Actions passes for that exact final commit SHA and its release-candidate, checksums and evidence are verified.
-- [x] Tag `v1.0.0` and the GitHub Release are created from that verified SHA.
+- [x] The owner reviewed and pushed the final documentation-only change.
+- [x] GitHub Actions passed for the exact final commit SHA, and its release candidate, checksums and evidence were verified.
+- [x] Tag `v1.0.0` and the GitHub Release were created from that verified SHA.
 
-The implementation and manual validation are complete. After the remaining documentation review, exact-SHA CI and artifact checks pass, the owner may create tag `v1.0.0` and publish the GitHub Release.
+HRandomPlus v1.0.0 release validation is closed. The open items above are future POST-v1.0.0 maintenance and are outside the completed release gates.
